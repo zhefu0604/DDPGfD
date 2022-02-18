@@ -11,7 +11,7 @@ train_config:
   batch_size: 4096 # Sample from PER
   update_step: 5 # Update per env step
   mse_loss: true # for Q loss
-  save_every: 100 # save and evaluate
+  save_every: 1 # save and evaluate
   # Pretrain Setting
   pretrain_demo: false
   pretrain_step: 10000
@@ -22,8 +22,8 @@ train_config:
   eval_gui: true
 
 agent_config:
-  state_dim: 16
-  action_dim: 4
+  state_dim: 3
+  action_dim: 1
   N_step: 10  # N step backup
   gamma: 0.9 # Reward discount
   seed: 54760

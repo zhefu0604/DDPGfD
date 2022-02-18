@@ -5,8 +5,14 @@ class ActorNet(nn.Module):
     def __init__(self, in_dim, out_dim, device):
         super(ActorNet, self).__init__()
         self.device = device
-        self.net = nn.Sequential(nn.Linear(in_dim, 512), nn.ReLU(), nn.Linear(512, 512), nn.ReLU(),
-                                 nn.Linear(512, out_dim), nn.Tanh())  # +-1 output
+        self.net = nn.Sequential(
+            nn.Linear(in_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, out_dim),
+            nn.Tanh(),
+        )  # +-1 output
 
     def forward(self, state):
         """
@@ -22,8 +28,13 @@ class CriticNet(nn.Module):
         super(CriticNet, self).__init__()
         self.device = device
         in_dim = s_dim + a_dim
-        self.net = nn.Sequential(nn.Linear(in_dim, 512), nn.ReLU(), nn.Linear(512, 512), nn.ReLU(),
-                                 nn.Linear(512, 1))
+        self.net = nn.Sequential(
+            nn.Linear(in_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1),
+        )
 
     def forward(self, sa_pairs):
         """
