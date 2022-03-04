@@ -1,15 +1,3 @@
-[02-18 15:32:57] TP       :INFO    : Backup config/s0.yaml
-[02-18 15:33:00] RLTrainer:INFO    : Environment Loaded
-[02-18 15:33:00] RLTrainer:INFO    : No Demo Trajectory Loaded
-[02-18 15:36:54] DDPGfD   :DEBUG   : Done: All experience added
-[02-18 15:36:54] RLTrainer:INFO    : 3m 54s: Episode 1-Last:3m 54s: Actor_loss=0.00020906, Critic_loss=0.00259967, Step=5373, Reward=-4286.805185789513, Demo_ratio=0.00000000
-[02-18 15:36:54] DDPGfD   :DEBUG   : (Soft)Update target network
-[02-18 15:36:54] DDPGfD   :DEBUG   : (Soft)Update target network
-[02-18 15:36:54] RLTrainer:INFO    : Config name s0
-[02-18 15:36:54] RLTrainer:INFO    : Progress Saved, current episode=1
-[02-18 15:42:04] DDPGfD   :DEBUG   : Done: All experience added
-[02-18 15:42:04] RLTrainer:INFO    : 9m 3s: Episode 2-Last:5m 9s: Actor_loss=0.00046674, Critic_loss=0.00251852, Step=5373, Reward=-3547.410663173984, Demo_ratio=0.00000000
-[02-18 15:42:04] DDPGfD   :DEBUG   : (Soft)Update target network
-[02-18 15:42:04] DDPGfD   :DEBUG   : (Soft)Update target network
-[02-18 15:42:04] RLTrainer:INFO    : Config name s0
-[02-18 15:42:04] RLTrainer:INFO    : Progress Saved, current episode=2
+[03-03 16:57:54] TP       :INFO    : Backup config/s0.yaml
+[03-03 16:58:57] RLTrainer:INFO    : Environment Loaded
+[03-03 16:58:57] RLTrainer:INFO    : No Demo Trajectory Loaded

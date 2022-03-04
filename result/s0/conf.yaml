@@ -1,11 +1,11 @@
-batch_size: 4096
+batch_size: 256
 env_port: 19999
 eval_episode: 20
 eval_gui: true
 exp_name: s0
 lr_rate: 0.0005
 mse_loss: true
-n_episode: 1800
+n_episode: 100
 pretrain_demo: false
 pretrain_save_step: 2000
 pretrain_step: 10000

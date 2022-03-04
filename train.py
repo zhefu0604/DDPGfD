@@ -1,5 +1,6 @@
 import os, sys, time
 import argparse
+import random
 
 from training_utils import TrainingProgress, timeSince, load_conf, check_path
 from agent import DDPGfDAgent, DATA_RUNTIME, DATA_DEMO
@@ -80,12 +81,70 @@ class RLTrainer:
         ## ENV
         #############
 
-        # remember to change it to match the # of envs
-        NUM_ENVS = 2
-
+        self.all_envs = []
         for i, trajectory_path in enumerate([
-                "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_0_5373.csv",
-                "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_1_4961.csv"]):
+                #"2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_0_5373.csv",
+                #"2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_1_4961.csv"]):
+                "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_0_4597.csv",
+                "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_1_4927.csv",
+                "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_0_6825.csv",
+                "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_1_4938.csv",
+                "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_0_4523.csv",
+                "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_1_4582.csv",
+                "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_0_5672.csv",
+                "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_1_4817.csv",
+                "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_0_4917.csv",
+                "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_1_11342.csv",
+                "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_0_4463.csv",
+                "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_1_4386.csv",
+                "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_0_3977.csv",
+                "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_1_3918.csv",
+                "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_0_4223.csv",
+                "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_1_4422.csv",
+                "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_0_4331.csv",
+                "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_1_3778.csv",
+                "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_0_6438.csv",
+                "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_1_4102.csv",
+                "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_0_4937.csv",
+                "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_1_4364.csv",
+                "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_0_4540.csv",
+                "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_1_4028.csv",
+                "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_0_5016.csv",
+                "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_1_4185.csv",
+                "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_0_4200.csv",
+                "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_1_4622.csv",
+                "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_0_4125.csv",
+                "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_1_4111.csv",
+                "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_0_4357.csv",
+                "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_1_4173.csv",
+                "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_0_4427.csv",
+                "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_1_4496.csv",
+                "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_0_11294.csv",
+                "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_1_6116.csv",
+                "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_0_4101.csv",
+                "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_1_4069.csv",
+                "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_0_4796.csv",
+                "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_1_4436.csv",
+                "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_0_3889.csv",
+                "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_1_3685.csv",
+                "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_0_5778.csv",
+                "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_1_4387.csv",
+                "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_0_16467.csv",
+                "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_1_6483.csv",
+                "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_0_4433.csv",
+                "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_1_4288.csv",
+                "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_0_4025.csv",
+                "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_1_3973.csv",
+                "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_0_3957.csv",
+                "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_1_3621.csv",
+                # "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_0_7050.csv",
+                "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_1_5292.csv",
+                "2021-04-26-21-13-18_2T3MWRFVXLW056972_masterArray_0_4595.csv",
+                "2021-04-26-21-13-18_2T3MWRFVXLW056972_masterArray_1_4664.csv",
+                "2021-04-27-21-37-32_2T3MWRFVXLW056972_masterArray_0_3836.csv",
+                "2021-04-27-21-37-32_2T3MWRFVXLW056972_masterArray_1_3558.csv",
+                "2021-04-29-21-16-14_2T3MWRFVXLW056972_masterArray_0_4190.csv",
+                "2021-04-29-21-16-14_2T3MWRFVXLW056972_masterArray_1_4005.csv"]):
                 # "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_0_4633.csv",
                 # "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_1_4622.csv",
                 # "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_0_5826.csv",
@@ -152,18 +211,19 @@ class RLTrainer:
                         'horizon': 1000, 'min_headway': 7.0, 'max_headway': 120.0, 'whole_trajectory': True,
                         'discrete': False, 'num_actions': 7, 'use_fs': False, 'augment_vf': False,
                         'minimal_time_headway': 1.0, 'include_idm_mpg': False, 'num_concat_states': 1,
-                        'num_steps_per_sim': 1, 'platoon': 'scenario1', 'av_controller': 'rl', 'av_kwargs': '{}',
+                        'num_steps_per_sim': 1, 'platoon': '2avs_4%', 'av_controller': 'rl', 'av_kwargs': '{}',
                         'human_controller': 'idm', 'human_kwargs': '{}',
-                        'fixed_traj_path': '/Users/zhefu/Desktop/Imitation Learning Controller/trajectory_training/dataset/data_v2_preprocessed_east/{}'.format(trajectory_path),
+                        'fixed_traj_path': '/Users/zhefu/Desktop/Imitation Learning Controller/trajectory_training/dataset/data_v2_preprocessed_west/{}'.format(trajectory_path),
                         'lane_changing': False
                     },
                     "_simulate": True
                 })
 
-        # Make the gym environment
-        self.env = [gym.make("TrajectoryEnv-v{}".format(i)) for i in range(NUM_ENVS)][0]
-        print(self.env)
+            # Make the gym environment
+            self.all_envs.append(gym.make("TrajectoryEnv-v{}".format(i)))
 
+        self.env = random.sample(self.all_envs, 1)[0]
+        print(self.env)
 
         self.logger.info('Environment Loaded')
 
@@ -298,9 +358,6 @@ class RLTrainer:
             loss_critic.backward()
             self.optimizer_critic.step()
 
-            print("update critic", time.time() - t0)
-            t0 = time.time()
-
             # Actor loss
             self.optimizer_actor.zero_grad()
             action_b = self.agent.actor_b(batch_s)
@@ -308,9 +365,6 @@ class RLTrainer:
             loss_actor = -torch.mean(Q_act)
             loss_actor.backward()
             self.optimizer_actor.step()
-
-            print("update actor", time.time() - t0)
-            t0 = time.time()
 
             priority = ((Q_b.detach() - y_tgt).pow(2) + Q_act.detach().pow(
                 2)).numpy().ravel() + self.agent.conf.const_min_priority
@@ -363,8 +417,6 @@ class RLTrainer:
         self.episode = 1  # Restore
 
     def train(self):
-        t = 0
-
         self.agent.train()
         # Define criterion
 
@@ -373,26 +425,31 @@ class RLTrainer:
             # Episodic statistics
             eps_since = time.time()
             eps_reward = eps_length = eps_actor_loss = eps_critic_loss = eps_batch_sz = eps_demo_n = 0
+            self.env = random.sample(self.all_envs, 1)[0]
+            print(self.env)
             s0 = self.env.reset()
+            n_agents = len(s0)
 
             self.agent.episode_reset()
             self.action_noise.reset()
 
             done = False
-            s_tensor = self.agent.obs2tensor(s0)
+            s_tensor = [self.agent.obs2tensor(s0[i]) for i in range(n_agents)]
 
             while not done:
                 # 1. Run environment step
                 with torch.no_grad():
                     # s_tensor = self.agent.obs2tensor(state)
-                    action_noise = torch.from_numpy(self.action_noise()).float()
-                    action = self.agent.actor_b(s_tensor.to(self.device)[None])[0] + action_noise
-                    s2, r, done, _ = self.env.step(action.numpy())
-                    s2_tensor = self.agent.obs2tensor(s2)
+                    action = [self.agent.actor_b(s_tensor[i].to(self.device)[None])[0] +
+                              torch.from_numpy(self.action_noise()).float() for i in range(n_agents)]
+                    s2, r, done, _ = self.env.step([act.numpy() for act in action])
+                    #print(s2, r, done, action.numpy())
+                    s2_tensor = [self.agent.obs2tensor(s2[i]) for i in range(n_agents)]
                     if not done or self.agent.conf.N_step == 0:  # For last step, not duplicate to the last pop from N_step
-                        self.agent.memory.add((s_tensor, action, torch.tensor([r]).float(), s2_tensor,
-                                               torch.tensor([self.agent.conf.gamma]),
-                                               DATA_RUNTIME))  # Add one-step to memory
+                        for i in range(n_agents):
+                            self.agent.memory.add((s_tensor[i], action[i], torch.tensor([r[i]]).float(), s2_tensor[i],
+                                                torch.tensor([self.agent.conf.gamma]),
+                                                DATA_RUNTIME))  # Add one-step to memory
 
                 # Add new step to N-step and Pop N-step data to memory
                 if self.agent.conf.N_step > 0:
@@ -400,18 +457,17 @@ class RLTrainer:
                         (s_tensor, action, torch.tensor([r]).float(), s2_tensor))  # Push to N-step backup
                     self.agent.add_n_step_experience(DATA_RUNTIME, done)  # Pop one
 
-                if eps_length % 5 == 0:
-                    losses_critic, losses_actor, demo_n, batch_sz = self.update_agent(self.conf.update_step)
-                    eps_actor_loss += losses_actor
-                    eps_critic_loss += losses_critic
-                    eps_batch_sz += batch_sz
-                    eps_demo_n += demo_n
-
                 # 3. Record episodic statistics
                 eps_reward += r
                 eps_length += 1
 
-                print("---------------------")
+            # Perform policy update.
+            # for _ in range(10):  TODO
+            losses_critic, losses_actor, demo_n, batch_sz = self.update_agent(self.conf.update_step)
+            eps_actor_loss += losses_actor
+            eps_critic_loss += losses_critic
+            eps_batch_sz += batch_sz
+            eps_demo_n += demo_n
 
             self.logger.info(
                 '{}: Episode {}-Last:{}: Actor_loss={:.8f}, Critic_loss={:.8f}, Step={}, Reward={}, Demo_ratio={:.8f}'.format(
@@ -422,7 +478,7 @@ class RLTrainer:
                     eps_critic_loss / eps_batch_sz,
                     eps_length, eps_reward, eps_demo_n / eps_batch_sz))
 
-            # Update target
+            # Update target  TODO: this was previously not done as frequently as the policy update
             self.agent.update_target(self.agent.actor_b, self.agent.actor_t, self.episode)
             self.agent.update_target(self.agent.critic_b, self.agent.critic_t, self.episode)
 
@@ -440,87 +496,6 @@ class RLTrainer:
                 self.summary()
 
             self.episode += 1
-
-    def eval(self, save_fig=True):
-        self.agent.eval()
-
-        all_length = []
-        all_reward = []
-
-        # Backup Environment state
-
-        for eps in range(self.conf.eval_episode):  # self.iter start from 1
-            # Episodic statistics
-            eps_reward = eps_length = 0
-            s0 = self.env.reset()
-            done = False
-            s_tensor = self.agent.obs2tensor(s0)
-            while not done:
-                # 1. Run environment step
-                with torch.no_grad():
-                    # s_tensor = self.agent.obs2tensor(state)
-                    action = self.agent.actor_b(s_tensor.to(self.device)[None])[0]
-                    s2, r, done, _ = self.env.step(action.numpy())
-                    s2 = s2
-                    s2_tensor = self.agent.obs2tensor(s2)
-                    # self.env.render()
-
-                # 3. Record episodic statistics
-                eps_reward += r
-                eps_length += 1
-
-                # Next step
-                s_tensor = s2_tensor
-            all_length.append(eps_length)
-            all_reward.append(eps_reward)
-
-        self.tp.record_step(self.episode, 'eval', {'Mean Length': np.mean(all_length), 'Std Length': np.std(all_length),
-                                                   'Mean Reward': np.mean(all_reward),
-                                                   'Std Reward': np.std(all_reward)})
-        self.logger.info(
-            'Eval Episode-{}: Mean Reward={:.3f}, Mena Length={:.3f}'.format(self.episode, np.mean(all_reward),
-                                                                             np.mean(all_length)))
-
-        # if save_fig:
-        #     # self.tp.plot_data('eval', self.conf.save_every, self.episode, 'result-eval-{}.png'.format(self.episode),
-        #     #                   self.conf.exp_name + str(self.conf.exp_idx) + '-Evaluate',
-        #     #                   self.conf.save_every)  # start from self.conf.save_every
-        self.agent.train()
-
-    def collect_demo(self, n_collect):
-        self.agent.eval()
-
-        demo_record = []  # list of tuple (s,a,r,s',Terminal)
-        file_idx = 0
-        check_path(self.full_conf.demo_config.demo_dir)
-
-        with torch.no_grad():
-            for eps in range(n_collect):  # self.iter start from 1
-                # Episodic statistics
-                s = self.env.reset()
-                done = False
-                s_tensor = self.agent.obs2tensor(s)
-                while not done:
-                    # s_tensor = self.agent.obs2tensor(state)
-                    action = self.agent.actor_b(s_tensor.to(self.device)[None])[0].numpy()
-                    s2, r, done, _ = self.env.step(action)
-                    s2 = s2
-                    s2_tensor = self.agent.obs2tensor(s2)
-                    # self.env.render()
-
-                    demo_record.append((s, action, r, s2, done))
-                    if done:
-                        save_name = opj(self.full_conf.demo_config.demo_dir,
-                                        self.full_conf.demo_config.prefix + str(eps) + '.pkl')
-                        joblib.dump(demo_record, save_name)
-                        self.logger.info('Terminate: Record {} saved'.format(save_name))
-                        demo_record = []
-                        file_idx += 1
-
-                    # Next step
-                    s_tensor = s2_tensor
-                    s = s2
-        print('Collect {} Demo'.format(n_collect))
 
 
 def main():
