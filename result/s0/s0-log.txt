@@ -1,3 +1,43 @@
-[03-03 16:57:54] TP       :INFO    : Backup config/s0.yaml
-[03-03 16:58:57] RLTrainer:INFO    : Environment Loaded
-[03-03 16:58:57] RLTrainer:INFO    : No Demo Trajectory Loaded
+[03-10 11:56:57] TP       :INFO    : Backup config/s0.yaml
+[03-10 11:57:08] RLTrainer:INFO    : Environment Loaded
+[03-10 11:57:08] RLTrainer:INFO    : No Demo Trajectory Loaded
+[03-10 11:57:29] RLTrainer:INFO    : 0m 21s: Episode 1-Last:0m 21s: Actor_loss=3.45519423, Critic_loss=1015462636076.80004883, Step=4597, Reward=-125904521800.75279, Demo_ratio=0.00000000, action_mean=-1.07304358, action_std==0.13158265
+[03-10 11:57:29] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:57:29] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:57:29] RLTrainer:INFO    : Config name s0
+[03-10 11:57:29] RLTrainer:INFO    : Progress Saved, current episode=1
+[03-10 11:57:51] RLTrainer:INFO    : 0m 42s: Episode 2-Last:0m 21s: Actor_loss=1.85335537, Critic_loss=137064817.59999999, Step=4595, Reward=-121454825354.7922, Demo_ratio=0.00000000, action_mean=-1.02610350, action_std==0.18986835
+[03-10 11:57:51] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:57:51] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:57:51] RLTrainer:INFO    : Config name s0
+[03-10 11:57:51] RLTrainer:INFO    : Progress Saved, current episode=2
+[03-10 11:58:12] RLTrainer:INFO    : 1m 4s: Episode 3-Last:0m 21s: Actor_loss=1.97033629, Critic_loss=142582543.19999999, Step=4664, Reward=-120105966621.38075, Demo_ratio=0.00000000, action_mean=-0.93354183, action_std==0.23495044
+[03-10 11:58:12] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:58:12] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:58:12] RLTrainer:INFO    : Config name s0
+[03-10 11:58:12] RLTrainer:INFO    : Progress Saved, current episode=3
+[03-10 11:58:34] RLTrainer:INFO    : 1m 26s: Episode 4-Last:0m 22s: Actor_loss=1.98241911, Critic_loss=136470992.80000001, Step=4664, Reward=-119809451545.71568, Demo_ratio=0.00000000, action_mean=-1.02812815, action_std==0.15767680
+[03-10 11:58:34] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:58:34] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:58:34] RLTrainer:INFO    : Config name s0
+[03-10 11:58:34] RLTrainer:INFO    : Progress Saved, current episode=4
+[03-10 11:58:53] RLTrainer:INFO    : 1m 45s: Episode 5-Last:0m 18s: Actor_loss=2.02620604, Critic_loss=142614309.59999999, Step=4190, Reward=-110280515950.96985, Demo_ratio=0.00000000, action_mean=-0.97217202, action_std==0.11732194
+[03-10 11:58:53] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:58:53] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:58:53] RLTrainer:INFO    : Config name s0
+[03-10 11:58:53] RLTrainer:INFO    : Progress Saved, current episode=5
+[03-10 11:59:15] RLTrainer:INFO    : 2m 6s: Episode 6-Last:0m 21s: Actor_loss=1.97335453, Critic_loss=138643228.00000000, Step=4595, Reward=-118611736173.65024, Demo_ratio=0.00000000, action_mean=-1.03528047, action_std==0.12831020
+[03-10 11:59:15] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:59:15] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:59:15] RLTrainer:INFO    : Config name s0
+[03-10 11:59:15] RLTrainer:INFO    : Progress Saved, current episode=6
+[03-10 11:59:36] RLTrainer:INFO    : 2m 27s: Episode 7-Last:0m 21s: Actor_loss=2.03750036, Critic_loss=142501723.19999999, Step=4597, Reward=-123460283550.57709, Demo_ratio=0.00000000, action_mean=-1.05724239, action_std==0.12278818
+[03-10 11:59:36] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:59:36] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:59:36] RLTrainer:INFO    : Config name s0
+[03-10 11:59:36] RLTrainer:INFO    : Progress Saved, current episode=7
+[03-10 11:59:55] RLTrainer:INFO    : 2m 46s: Episode 8-Last:0m 18s: Actor_loss=1.99381096, Critic_loss=135288720.00000000, Step=4005, Reward=-101398010265.93839, Demo_ratio=0.00000000, action_mean=-0.93131351, action_std==0.14951487
+[03-10 11:59:55] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:59:55] DDPGfD   :DEBUG   : (Soft)Update target network
+[03-10 11:59:55] RLTrainer:INFO    : Config name s0
+[03-10 11:59:55] RLTrainer:INFO    : Progress Saved, current episode=8

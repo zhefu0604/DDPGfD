@@ -83,61 +83,59 @@ class RLTrainer:
 
         self.all_envs = []
         for i, trajectory_path in enumerate([
-                #"2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_0_5373.csv",
-                #"2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_1_4961.csv"]):
                 "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_0_4597.csv",
                 "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_1_4927.csv",
-                "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_0_6825.csv",
-                "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_1_4938.csv",
-                "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_0_4523.csv",
-                "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_1_4582.csv",
-                "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_0_5672.csv",
-                "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_1_4817.csv",
-                "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_0_4917.csv",
-                "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_1_11342.csv",
-                "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_0_4463.csv",
-                "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_1_4386.csv",
-                "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_0_3977.csv",
-                "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_1_3918.csv",
-                "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_0_4223.csv",
-                "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_1_4422.csv",
-                "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_0_4331.csv",
+                # "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_0_6825.csv",
+                # "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_1_4938.csv",
+                # "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_0_4523.csv",
+                # "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_1_4582.csv",
+                # "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_0_5672.csv",
+                # "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_1_4817.csv",
+                # "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_0_4917.csv",
+                # "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_1_11342.csv",
+                # "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_0_4463.csv",
+                # "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_1_4386.csv",
+                # "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_0_3977.csv",
+                # "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_1_3918.csv",
+                # "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_0_4223.csv",
+                # "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_1_4422.csv",
+                # "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_0_4331.csv", ### Arwa said this trajectory might has sensor malfunction issue
                 "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_1_3778.csv",
-                "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_0_6438.csv",
-                "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_1_4102.csv",
-                "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_0_4937.csv",
-                "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_1_4364.csv",
-                "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_0_4540.csv",
-                "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_1_4028.csv",
-                "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_0_5016.csv",
-                "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_1_4185.csv",
-                "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_0_4200.csv",
-                "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_1_4622.csv",
-                "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_0_4125.csv",
-                "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_1_4111.csv",
-                "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_0_4357.csv",
-                "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_1_4173.csv",
-                "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_0_4427.csv",
-                "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_1_4496.csv",
-                "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_0_11294.csv",
-                "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_1_6116.csv",
-                "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_0_4101.csv",
-                "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_1_4069.csv",
-                "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_0_4796.csv",
-                "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_1_4436.csv",
-                "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_0_3889.csv",
-                "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_1_3685.csv",
-                "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_0_5778.csv",
-                "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_1_4387.csv",
-                "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_0_16467.csv",
-                "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_1_6483.csv",
-                "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_0_4433.csv",
-                "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_1_4288.csv",
-                "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_0_4025.csv",
-                "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_1_3973.csv",
-                "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_0_3957.csv",
-                "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_1_3621.csv",
-                # "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_0_7050.csv",
+                # "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_0_6438.csv", ### used for dashboard testing
+                # "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_1_4102.csv",
+                # "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_0_4937.csv",
+                # "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_1_4364.csv",
+                # "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_0_4540.csv",
+                # "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_1_4028.csv",
+                # "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_0_5016.csv",
+                # "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_1_4185.csv",
+                # "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_0_4200.csv",
+                # "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_1_4622.csv",
+                # "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_0_4125.csv",
+                # "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_1_4111.csv",
+                # "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_0_4357.csv",
+                # "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_1_4173.csv",
+                # "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_0_4427.csv",
+                # "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_1_4496.csv",
+                # "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_0_11294.csv",
+                # "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_1_6116.csv",
+                # "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_0_4101.csv",
+                # "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_1_4069.csv",
+                # "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_0_4796.csv",
+                # "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_1_4436.csv",
+                # "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_0_3889.csv",
+                # "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_1_3685.csv", ### used for dashboard testing
+                # "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_0_5778.csv",
+                # "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_1_4387.csv",
+                # "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_0_16467.csv",
+                # "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_1_6483.csv",
+                # "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_0_4433.csv",
+                # "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_1_4288.csv",
+                # "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_0_4025.csv",
+                # "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_1_3973.csv",
+                # "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_0_3957.csv",
+                # "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_1_3621.csv",
+                # "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_0_7050.csv", ### used for dashboard testing
                 "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_1_5292.csv",
                 "2021-04-26-21-13-18_2T3MWRFVXLW056972_masterArray_0_4595.csv",
                 "2021-04-26-21-13-18_2T3MWRFVXLW056972_masterArray_1_4664.csv",
@@ -145,64 +143,6 @@ class RLTrainer:
                 "2021-04-27-21-37-32_2T3MWRFVXLW056972_masterArray_1_3558.csv",
                 "2021-04-29-21-16-14_2T3MWRFVXLW056972_masterArray_0_4190.csv",
                 "2021-04-29-21-16-14_2T3MWRFVXLW056972_masterArray_1_4005.csv"]):
-                # "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_0_4633.csv",
-                # "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_1_4622.csv",
-                # "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_0_5826.csv",
-                # "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_1_5757.csv",
-                # "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_0_7509.csv",
-                # "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_1_6813.csv",
-                # "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_0_8314.csv",
-                # "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_1_6848.csv"]):
-                # "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_0_4773.csv",
-                # "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_1_4689.csv",
-                # "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_0_4059.csv",
-                # "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_1_4033.csv",
-                # "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_0_5274.csv",
-                # "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_1_4405.csv",
-                # "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_0_5388.csv",
-                # "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_1_4732.csv",
-                # "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_0_6506.csv",
-                # "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_1_4117.csv",
-                # "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_0_5521.csv",
-                # "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_1_5370.csv",
-                # "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_0_5244.csv",
-                # # "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_1_6131.csv",
-                # "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_0_4214.csv",
-                # "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_1_4186.csv",
-                # "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_0_5472.csv",
-                # "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_1_5335.csv",
-                # "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_0_5116.csv",
-                # "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_1_4866.csv",
-                # "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_0_6509.csv",
-                # "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_1_9955.csv",
-                # "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_0_6398.csv",
-                # "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_1_9874.csv",
-                # "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_0_4031.csv",
-                # "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_1_4266.csv",
-                # "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_0_4882.csv",
-                # "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_1_4776.csv",
-                # "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_0_5062.csv",
-                # "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_1_5175.csv",
-                # "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_0_5246.csv",
-                # "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_1_4666.csv",
-                # "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_0_4127.csv",
-                # "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_1_4220.csv",
-                # "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_0_4024.csv",
-                # "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_1_4157.csv",
-                # "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_0_5905.csv",
-                # "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_1_5537.csv",
-                # "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_0_4395.csv",
-                # "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_1_4613.csv",
-                # "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_0_4818.csv",
-                # "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_1_4280.csv",
-                # "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_0_4285.csv",
-                # "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_1_4282.csv",
-                # "2021-04-26-21-13-18_2T3MWRFVXLW056972_masterArray_0_5508.csv",
-                # "2021-04-26-21-13-18_2T3MWRFVXLW056972_masterArray_1_5377.csv",
-                # "2021-04-27-21-37-32_2T3MWRFVXLW056972_masterArray_0_4353.csv",
-                # "2021-04-27-21-37-32_2T3MWRFVXLW056972_masterArray_1_4765.csv",
-                # "2021-04-29-21-16-14_2T3MWRFVXLW056972_masterArray_0_6410.csv",
-                # "2021-04-29-21-16-14_2T3MWRFVXLW056972_masterArray_1_5183.csv"]):
             register(
                 id="TrajectoryEnv-v{}".format(i),
                 entry_point="trajectory.env.trajectory_env:TrajectoryEnv",
@@ -223,7 +163,6 @@ class RLTrainer:
             self.all_envs.append(gym.make("TrajectoryEnv-v{}".format(i)))
 
         self.env = random.sample(self.all_envs, 1)[0]
-        print(self.env)
 
         self.logger.info('Environment Loaded')
 
@@ -325,62 +264,50 @@ class RLTrainer:
         demo_cnt = []
         batch_sz = 0
         if self.agent.memory.ready():
-            t0 = time.time()
-            (batch_s, batch_a, batch_r, batch_s2, batch_gamma, batch_flags), weights, idxes = self.agent.memory.sample(
-                self.conf.batch_size)
+            for _ in range(update_step):
+                (batch_s, batch_a, batch_r, batch_s2, batch_gamma, batch_flags), weights, idxes = self.agent.memory.sample(
+                    self.conf.batch_size)
 
-            # print("get batch p1", time.time() - t0)
-            t0 = time.time()
+                batch_s, batch_a, batch_r, batch_s2, batch_gamma, weights = \
+                    batch_s.to(self.device), batch_a.to(self.device), batch_r.to(self.device), batch_s2.to(self.device), \
+                    batch_gamma.to(self.device), torch.from_numpy(weights.reshape(-1, 1)).float().to(self.device)
 
-            batch_s, batch_a, batch_r, batch_s2, batch_gamma, weights = \
-                batch_s.to(self.device), batch_a.to(self.device), batch_r.to(self.device), batch_s2.to(self.device), \
-                batch_gamma.to(self.device), torch.from_numpy(weights.reshape(-1, 1)).float().to(self.device)
+                batch_sz += batch_s.shape[0]
+                with torch.no_grad():
+                    action_tgt = self.agent.actor_t(batch_s)
+                    y_tgt = batch_r + batch_gamma * self.agent.critic_t(torch.cat((batch_s, action_tgt), dim=1))
 
-            # print("get batch p2", time.time() - t0)
-            t0 = time.time()
+                self.agent.zero_grad()
+                # Critic loss
+                self.optimizer_critic.zero_grad()
+                Q_b = self.agent.critic_b(torch.cat((batch_s, batch_a), dim=1))
+                loss_critic = (self.q_criterion(Q_b, y_tgt) * weights).mean()
 
-            batch_sz += batch_s.shape[0]
-            with torch.no_grad():
-                action_tgt = self.agent.actor_t(batch_s)
-                y_tgt = batch_r + batch_gamma * self.agent.critic_t(torch.cat((batch_s, action_tgt), dim=1))
+                # Record Demo count
+                d_flags = torch.from_numpy(batch_flags)
+                demo_select = d_flags == DATA_DEMO
+                N_act = demo_select.sum().item()
+                demo_cnt.append(N_act)
+                loss_critic.backward()
+                self.optimizer_critic.step()
 
-            self.agent.zero_grad()
-            # Critic loss
-            self.optimizer_critic.zero_grad()
-            Q_b = self.agent.critic_b(torch.cat((batch_s, batch_a), dim=1))
-            loss_critic = (self.q_criterion(Q_b, y_tgt) * weights).mean()
+                # Actor loss
+                self.optimizer_actor.zero_grad()
+                action_b = self.agent.actor_b(batch_s)
+                Q_act = self.agent.critic_b(torch.cat((batch_s, action_b), dim=1))
+                loss_actor = -torch.mean(Q_act)
+                loss_actor.backward()
+                self.optimizer_actor.step()
 
-            # Record Demo count
-            d_flags = torch.from_numpy(batch_flags)
-            demo_select = d_flags == DATA_DEMO
-            N_act = demo_select.sum().item()
-            demo_cnt.append(N_act)
-            loss_critic.backward()
-            self.optimizer_critic.step()
+                priority = ((Q_b.detach() - y_tgt).pow(2) + Q_act.detach().pow(
+                    2)).numpy().ravel() + self.agent.conf.const_min_priority
+                priority[batch_flags == DATA_DEMO] += self.agent.conf.const_demo_priority
 
-            # Actor loss
-            self.optimizer_actor.zero_grad()
-            action_b = self.agent.actor_b(batch_s)
-            Q_act = self.agent.critic_b(torch.cat((batch_s, action_b), dim=1))
-            loss_actor = -torch.mean(Q_act)
-            loss_actor.backward()
-            self.optimizer_actor.step()
+                if not self.agent.conf.no_per:
+                    self.agent.memory.update_priorities(idxes, priority)
 
-            priority = ((Q_b.detach() - y_tgt).pow(2) + Q_act.detach().pow(
-                2)).numpy().ravel() + self.agent.conf.const_min_priority
-            priority[batch_flags == DATA_DEMO] += self.agent.conf.const_demo_priority
-
-            # print("priority p1", time.time() - t0)
-            t0 = time.time()
-
-            if not self.agent.conf.no_per:
-                self.agent.memory.update_priorities(idxes, priority)
-
-            # print("priority p2", time.time() - t0)
-            t0 = time.time()
-
-            losses_actor.append(loss_actor.item())
-            losses_critic.append(loss_critic.item())
+                losses_actor.append(loss_actor.item())
+                losses_critic.append(loss_critic.item())
 
         if np.sum(demo_cnt) == 0:
             demo_n = 1e-10
@@ -435,6 +362,7 @@ class RLTrainer:
 
             done = False
             s_tensor = [self.agent.obs2tensor(s0[i]) for i in range(n_agents)]
+            action_lst = []
 
             while not done:
                 # 1. Run environment step
@@ -442,6 +370,7 @@ class RLTrainer:
                     # s_tensor = self.agent.obs2tensor(state)
                     action = [self.agent.actor_b(s_tensor[i].to(self.device)[None])[0] +
                               torch.from_numpy(self.action_noise()).float() for i in range(n_agents)]
+                    action_lst.extend([act.numpy() for act in action])
                     s2, r, done, _ = self.env.step([act.numpy() for act in action])
                     #print(s2, r, done, action.numpy())
                     s2_tensor = [self.agent.obs2tensor(s2[i]) for i in range(n_agents)]
@@ -458,8 +387,10 @@ class RLTrainer:
                     self.agent.add_n_step_experience(DATA_RUNTIME, done)  # Pop one
 
                 # 3. Record episodic statistics
-                eps_reward += r
+                eps_reward += np.mean(r)
                 eps_length += 1
+
+                s_tensor = s2_tensor
 
             # Perform policy update.
             # for _ in range(10):  TODO
@@ -470,15 +401,26 @@ class RLTrainer:
             eps_demo_n += demo_n
 
             self.logger.info(
-                '{}: Episode {}-Last:{}: Actor_loss={:.8f}, Critic_loss={:.8f}, Step={}, Reward={}, Demo_ratio={:.8f}'.format(
+                '{}: '
+                'Episode {}-Last:{}: '
+                'Actor_loss={:.8f}, '
+                'Critic_loss={:.8f}, '
+                'Step={}, '
+                'Reward={}, '
+                'Demo_ratio={:.8f}, '
+                'action_mean={:.8f}, '
+                'action_std=={:.8f}'.format(
                     timeSince(start_time),
                     self.episode,
                     timeSince(eps_since),
                     eps_actor_loss / eps_batch_sz,
                     eps_critic_loss / eps_batch_sz,
-                    eps_length, eps_reward, eps_demo_n / eps_batch_sz))
+                    eps_length, eps_reward, eps_demo_n / eps_batch_sz,
+                    np.mean(action_lst),
+                    np.std(action_lst),
+                ))
 
-            # Update target  TODO: this was previously not done as frequently as the policy update
+            # Update target
             self.agent.update_target(self.agent.actor_b, self.agent.actor_t, self.episode)
             self.agent.update_target(self.agent.critic_b, self.agent.critic_t, self.episode)
 
