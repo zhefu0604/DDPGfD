@@ -12,6 +12,7 @@ import logging
 from os.path import join as opj
 import gym
 from gym.envs.registration import register
+import pickle
 
 np.set_printoptions(suppress=True, precision=4)
 
@@ -232,28 +233,30 @@ class RLTrainer:
     def demo2memory(self):
         dconf = self.full_conf.demo_config
         if dconf.load_demo_data:
-            for f_idx in range(dconf.load_N):
-                self.agent.episode_reset()
-                fname = opj(dconf.demo_dir, dconf.prefix + str(f_idx) + '.pkl')
-                data = joblib.load(fname)
-                for exp in data:
-                    s, a, r, s2, done = exp
-                    s_tensor = torch.from_numpy(s).float()
-                    s2_tensor = torch.from_numpy(s2).float()
-                    action = torch.from_numpy(a).float()
-                    if not done or self.agent.conf.N_step == 0:
-                        self.agent.memory.add((s_tensor, action, torch.tensor([r]).float(), s2_tensor,
-                                               torch.tensor([self.agent.conf.gamma]),
-                                               DATA_DEMO))  # Add one-step to memory, last step added in pop with done=True
+            for ix, f_idx in enumerate([x for x in os.listdir(dconf.demo_dir) if x.endswith(".pkl")]):
+                fname = opj(dconf.demo_dir, f_idx)
+                print(fname)
+                with open(fname, 'rb') as f:
+                    data = pickle.load(f)
+                for i in range(len(data)):
+                    for j in range(data[i]['state'].shape[0]):
+                        s = data[i]['state'][j,:]
+                        a = data[i]['action'][j,:]
+                        r = data[i]['reward'][j,0]
+                        s2 = data[i]['next_state'][j,:]
+                        done = data[i]['done'][j,0]
 
-                    # Add new step to N-step and Pop N-step data to memory
-                    if self.agent.conf.N_step > 0:
-                        self.agent.backup.add_exp(
-                            (s_tensor, action, torch.tensor([r]).float(), s2_tensor))  # Push to N-step backup
-                        self.agent.add_n_step_experience(DATA_DEMO, done)
-            self.logger.info('{}/{} Demo Trajectories Loaded. Total Experience={}'.format(dconf.load_N, dconf.demo_N,
-                                                                                          len(self.agent.memory)))
-            self.agent.memory.set_protect_size(len(self.agent.memory))
+                        s_tensor = torch.from_numpy(s).float()
+                        s2_tensor = torch.from_numpy(s2).float()
+                        action = torch.from_numpy(a).float()
+                        if not done or self.agent.conf.N_step == 0:
+                            self.agent.memory.add((s_tensor, action, torch.tensor([r]).float(), s2_tensor,
+                                                   torch.tensor([self.agent.conf.gamma]),
+                                                   DATA_DEMO))  # Add one-step to memory, last step added in pop with done=True
+
+                self.logger.info('{} Demo Trajectories Loaded. Total Experience={}'.format(
+                    ix + 1, len(self.agent.memory)))
+            # self.agent.memory.set_protect_size(len(self.agent.memory))
         else:
             self.logger.info('No Demo Trajectory Loaded')
 

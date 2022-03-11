@@ -27,7 +27,7 @@ agent_config:
   N_step: 0  # N step backup
   gamma: 0.9 # Reward discount
   seed: 54760
-  replay_buffer_size: 100000
+  replay_buffer_size: 1000000
   discrete_update: false
   discrete_update_eps: 5 # Discrete update every N episode
   tau: 0.3 # Continuous update, source network portion, per episode
@@ -37,7 +37,7 @@ agent_config:
   no_per: false # No prioritized experience replay (Don't  update priority)
 
 demo_config:
-  load_demo_data: false
+  load_demo_data: true
   demo_dir: './data/demo'
   demo_N: 0 # manually fill in
   load_N: 0  # manually fill in
