@@ -1,0 +1,10 @@
+*.csv
+*.pyc
+*egg-info/
+__pycache__
+*zip
+debug
+*.idea/
+*.ipynb_checkpoints/
+*data/
+*.DS_Store
