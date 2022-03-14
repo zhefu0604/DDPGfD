@@ -1,20 +1,23 @@
 import numpy as np
-import time, math, errno
+import time
+import math
+import errno
 import torch
 from torchvision import transforms as tvtf
 from torch.utils.data import Dataset
 from shutil import copy2
 from torch import nn
-import pickle, os
+import pickle
+import os
 from collections import OrderedDict
-from torch.optim import lr_scheduler
 import matplotlib
-import prodict, yaml
+import prodict
+import yaml
 import logging
-
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch.nn.init as init
+
+matplotlib.use('Agg')
 
 np.set_printoptions(suppress=True, precision=5)
 
@@ -52,19 +55,26 @@ def check_path(path):
 
 
 class TrainingProgress:
-    def __init__(self, progress_path, result_path, folder_name, tp_step=None, meta_dict=None, record_dict=None,
+    def __init__(self,
+                 progress_path,
+                 result_path,
+                 folder_name,
+                 tp_step=None,
+                 meta_dict=None,
+                 record_dict=None,
                  restore=False):
         """
         Header => Filename header,append file name behind
         Data Dict => Appendable data (loss,time,acc....)
         Meta Dict => One time data (config,weight,.....)
         """
-        self.progress_path = os.path.join(progress_path, folder_name) + '/'  # RL-tp...
+        self.progress_path = os.path.join(progress_path, folder_name) + '/'
         self.result_path = os.path.join(result_path, folder_name) + '/'
         check_path(self.progress_path)
         check_path(self.result_path)
         if restore:
-            assert tp_step is not None, 'Explicitly assign the TP step you want to restore'
+            assert tp_step is not None, \
+                'Explicitly assign the TP step you want to restore'
             self.restore_progress(tp_step)
         else:
             self.meta_dict = meta_dict or {}  # one time values
@@ -93,7 +103,6 @@ class TrainingProgress:
         # record every epoch, prefix=train/test/validation....
         key = prefix + str(epoch)
         if key in self.record_dict.keys():
-            # print('TP Warning: Epoch Data with key={} is overwritten'.format(key))
             self.record_dict[key].update(new_dict)
         else:
             self.record_dict[key] = new_dict
@@ -113,7 +122,8 @@ class TrainingProgress:
             try:
                 data.append(self.record_dict[key][data_key])
             except KeyError:
-                self.logger.warning('TP Warning, Invalid epoch={}, Data Ignored!'.format(ep))
+                self.logger.warning(
+                    'TP Warning, Invalid epoch={}, Data Ignored!'.format(ep))
         return data
 
     def get_step_data_all(self, prefix, ep_start, ep_end, ep_step=1):
@@ -131,17 +141,26 @@ class TrainingProgress:
         return append_dict
 
     def save_progress(self, tp_step, override_path=None):
-        name = self.progress_path + str(tp_step) + '.tpdata' if override_path is None else override_path
+        name = self.progress_path + str(tp_step) + '.tpdata' \
+            if override_path is None else override_path
         check_path(os.path.dirname(name))
         with open(name, "wb") as f:
             pickle.dump((self.meta_dict, self.record_dict), f, protocol=2)
 
     def restore_progress(self, tp_step, override_path=None):
-        name = self.progress_path + str(tp_step) + '.tpdata' if override_path is None else override_path
+        name = self.progress_path + str(tp_step) + '.tpdata' \
+            if override_path is None else override_path
         with open(name, 'rb') as f:
             self.meta_dict, self.record_dict = pickle.load(f)
 
-    def plot_data(self, prefix, ep_start, ep_end, file_name, title, ep_step=1, grid=True):  # [ep_start,ep_end]
+    def plot_data(self,
+                  prefix,
+                  ep_start,
+                  ep_end,
+                  file_name,
+                  title,
+                  ep_step=1,
+                  grid=True):
         ep_end += 1
         data_keys = list(self.record_dict[prefix + str(ep_start)].keys())
         data_keys.sort()  # Item keys
@@ -174,7 +193,14 @@ class TrainingProgress:
         plt.clf()
         plt.close(fig)
 
-    def plot_data_overlap(self, prefix, ep_start, ep_end, file_name, title, ep_step=1, keys=None):  # [ep_start,ep_end]
+    def plot_data_overlap(self,
+                          prefix,
+                          ep_start,
+                          ep_end,
+                          file_name,
+                          title,
+                          ep_step=1,
+                          keys=None):
         ep_end += 1
         data_keys = list(self.record_dict[prefix + str(ep_start)].keys())
         data_keys.sort()  # Item keys
@@ -219,95 +245,12 @@ class TrainingProgress:
             yaml.dump(dict, outfile)
 
 
-class LearningRateScheduler:  # Include torch.optim.lr_scheduler
-    def __init__(self, mode, param_groups, lr_rates=None, lr_epochs=None, lr_loss=None, lr_init=None,
-                 lr_decay_func=None,
-                 torch_lrs='ReduceLROnPlateau', torch_lrs_param={'mode': 'min', 'factor': 0.5, 'patience': 20}):
-        self.mode = mode
-        if isinstance(param_groups, torch.optim.Optimizer):
-            Warning('Deprecated usage, pass list of param group instead')
-            self.groups = param_groups.param_groups
-        else:
-            assert isinstance(param_groups, list)
-            self.groups = param_groups  # the specific param group to be controlled
-        self.rate = lr_init
-        # Check each mode
-        if self.mode == 'epoch':
-            self.lr_rates = lr_rates  # only single value if decay mode else list of rate
-            self.epoch_targets = lr_epochs
-            assert (0 <= len(self.lr_rates) - len(self.epoch_targets) <= 1), "Learning rate scheduler setting error."
-            self.rate_func = self.lr_rate_epoch
-            self.adjust_learning_rate(self.rate)
-
-        elif self.mode == 'loss':
-            self.lr_rates = lr_rates
-            self.loss_targets = lr_loss
-            assert (0 <= len(self.lr_rates) - len(self.loss_targets) <= 1), 'Learning rate scheduler setting error.'
-            self.rate_func = self.lr_rate_loss
-            self.adjust_learning_rate(self.rate)
-
-        elif self.mode == 'decay':
-            self.lr_rates = lr_rates  # only single value if decay mode else list of rate
-            self.decay_func = lr_decay_func
-            self.rate_func = self.lr_rate_decay
-            # raise NotImplementedError  # Zzz....
-
-        elif self.mode == 'torch':
-            raise NotImplementedError('TODO: Modify to based on param group')
-            # Should set the lr scheduler name in torch.optim.scheduler
-            assert torch_lrs_param is not None, "Learning rate scheduler setting error."
-
-            if torch_lrs == 'ReduceLROnPlateau':
-                self.torch_lrs = getattr(lr_scheduler, 'ReduceLROnPlateau')(self.optimizer,
-                                                                            **torch_lrs_param)  # instance
-            else:
-                raise NotImplementedError
-            self.rate_func = self.torch_lrs.step
-        else:
-            raise NotImplementedError("Learning rate scheduler setting error.")
-        print('Learning rate scheduler: Mode=', self.mode, ' Learning rate=', self.rate)
-
-    def step(self, param_dict, display=True):
-        if self.mode == 'torch':
-            self.rate_func(param_dict[self.mode])
-        else:
-            new_rate, self.next = self.rate_func(param_dict[self.mode])
-            if new_rate == self.rate:
-                return
-            else:
-                self.rate = new_rate
-                if display:
-                    print('Learning rate scheduler: Mode=', self.mode, ' New Learning rate=', new_rate,
-                          ' Next ', self.mode, ' target=', self.next)
-                self.adjust_learning_rate(self.rate)
-
-    def lr_rate_epoch(self, epoch):
-        for idx, e in enumerate(self.epoch_targets):
-            if epoch < e:
-                # next lr rate, next epoch target for changing lr rate
-                return self.lr_rates[idx], self.epoch_targets[idx]
-        return self.lr_rates[-1], -1  # Last(smallest) lr rate
-
-    def lr_rate_loss(self, loss):
-        for idx, l in enumerate(self.loss_targets):
-            if loss > l:
-                return self.lr_rates[idx], self.loss_targets[idx]  # next lr rate, next loss target for changing lr rate
-        return self.lr_rates[-1], -1  # Last(smallest) lr rate
-
-    def lr_rate_decay(self, n):
-        rate = self.rate * self.decay_func(n)
-        return rate, -1
-
-    def adjust_learning_rate(self, lr):
-        for group in self.groups:
-            group['lr'] = lr
-
-
 def initialize_weight(net):
     for m in net.modules():
         if isinstance(m, nn.Conv2d):
             print('Conv2d Init')
-            nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            nn.init.kaiming_normal_(
+                m.weight, mode='fan_out', nonlinearity='relu')
         elif isinstance(m, (nn.BatchNorm2d, nn.BatchNorm3d)):
             print('BatchNorm Init')
             nn.init.constant_(m.weight, 1)
@@ -408,22 +351,23 @@ class Subset(Dataset):
 
 
 def train_valid_split(dataset, train_ratio, random_indices=None):
-    N = len(dataset)
-    train_n = int(train_ratio * N)
-    valid_n = N - train_n
+    n = len(dataset)
+    train_n = int(train_ratio * n)
+    valid_n = n - train_n
     assert train_ratio <= 1
     print('Training set:', train_n, ' , Validation set:', valid_n)
-    indices = random_indices if random_indices is not None else np.random.permutation(N)
-    assert len(indices) == N
-    return Subset(dataset, indices=indices[0:train_n]), Subset(dataset, indices=indices[train_n:N])
+    indices = random_indices or np.random.permutation(n)
+    assert len(indices) == n
+    return Subset(dataset, indices=indices[0:train_n]), \
+        Subset(dataset, indices=indices[train_n:n])
 
 
 def weight_init(m):
-    '''
+    """
     Usage:
         model = Model()
         model.apply(weight_init)
-    '''
+    """
     if isinstance(m, nn.Conv1d):
         init.normal_(m.weight.data)
         if m.bias is not None:
@@ -503,11 +447,13 @@ class ExplorationRate:  # Epsilon greedy, Prob{eps} random , Prob{1-eps} greedy
         self.eps = max(self.eps_min, self.eps * self.decay)
         self.iter += 1
 
-    def restore(self, iter):
-        self.eps = max(self.eps_min, self.init_eps * (self.decay ** iter))
+    def restore(self, itr):
+        self.eps = max(self.eps_min, self.init_eps * (self.decay ** itr))
 
 
-def denormalize_image(img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+def denormalize_image(img,
+                      mean=[0.485, 0.456, 0.406],
+                      std=[0.229, 0.224, 0.225]):
     # assert img.shape[0] == 3, 'Image is in C,H,W format,float tensor'
     if img.shape[0] == 4:
         img = img[0]

@@ -22,7 +22,8 @@ def stdout_redirected(to=os.devnull, stdout=None):
 
     stdout_fd = fileno(stdout)
     # copy stdout_fd before it is overwritten
-    # NOTE: `copied` is inheritable on Windows when duplicating a standard stream
+    # NOTE: `copied` is inheritable on Windows when duplicating a standard
+    # stream
     with os.fdopen(os.dup(stdout_fd), 'wb') as copied:
         stdout.flush()  # flush library buffers that dup2 knows nothing about
         try:
@@ -39,9 +40,11 @@ def stdout_redirected(to=os.devnull, stdout=None):
             os.dup2(copied.fileno(), stdout_fd)  # $ exec >&copied
 
 
-# colored stream handler for python logging framework (use the ColorStreamHandler class).
-# from https://gist.github.com/mooware/a1ed40987b6cc9ab9c65
 class ColorStreamHandler(logging.StreamHandler):
+    """Colored stream handler for python logging framework.
+
+    Adapted from https://gist.github.com/mooware/a1ed40987b6cc9ab9c65.
+    """
     DEFAULT = '\x1b[0m'
     RED = '\x1b[31m'
     GREEN = '\x1b[32m'
@@ -92,8 +95,9 @@ def logger_setup(log_file, loggers, level):
     file_handler = logging.FileHandler(log_file, 'w', 'utf-8')
     console_handler = ColorStreamHandler()
 
-    formatter = logging.Formatter('[%(asctime)s] %(name)-9s:%(levelname)-8s: %(message)s',
-                                  datefmt="%m-%d %H:%M:%S")
+    formatter = logging.Formatter(
+        '[%(asctime)s] %(name)-9s:%(levelname)-8s: %(message)s',
+        datefmt="%m-%d %H:%M:%S")
     console_handler.setFormatter(formatter)
     # console_handler.setLevel(level)
 

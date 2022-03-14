@@ -24,7 +24,6 @@ train_config:
 agent_config:
   state_dim: 15
   action_dim: 1
-  N_step: 0  # N step backup
   gamma: 0.9 # Reward discount
   seed: 54760
   replay_buffer_size: 100000
@@ -38,7 +37,7 @@ agent_config:
 
 demo_config:
   load_demo_data: false
-  demo_dir: './data/demo'
+  demo_dir: './demo/random'
   demo_N: 0 # manually fill in
   load_N: 0  # manually fill in
   prefix: 'demo_' # demo_i.pkl

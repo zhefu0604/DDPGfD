@@ -96,7 +96,7 @@ Modify the lines 47-48 of **config/s1.yaml**
    ```yaml
 demo_config:
   load_demo_data: true
-  demo_dir: './data/demo'
+  demo_dir: './demo/random'
   demo_N: 100 # fill in the number of trajectories you collect
   load_N: 100  # fill in the number of trajectories you want to load
    ```
