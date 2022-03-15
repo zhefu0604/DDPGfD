@@ -7,11 +7,12 @@ train_config:
   w_decay: 0.00001
   restore: false # Restore for training or evaluation
   tps: 1800 # Restored episode for evaluation
-  n_episode: 100 # Total Training Episode
+  n_episode: 1000 # Total Training Episode
   batch_size: 256 # Sample from PER
   update_step: 10 # Number of policy updates per env rollout
   mse_loss: true # for Q loss
   save_every: 1 # save and evaluate
+
   # Pretrain Setting
   pretrain_demo: false
   pretrain_step: 10000
@@ -22,7 +23,7 @@ agent_config:
   action_dim: 1
   gamma: 0.9 # Reward discount
   seed: 54760
-  replay_buffer_size: 100000
+  replay_buffer_size: 1000000
   tau: 0.3 # Continuous update, source network portion, per episode
   action_noise_std: 0.1
   const_demo_priority: 0.99 # Should be less than 1
@@ -30,6 +31,6 @@ agent_config:
   no_per: false # No prioritized experience replay (Don't  update priority)
 
 demo_config:
-  load_demo_data: false
+  load_demo_data: true
   demo_dir: './demo/random'
   random: true

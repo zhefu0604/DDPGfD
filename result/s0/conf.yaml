@@ -3,7 +3,7 @@ env_port: 19999
 exp_name: s0
 lr_rate: 0.0005
 mse_loss: true
-n_episode: 100
+n_episode: 1000
 pretrain_demo: false
 pretrain_save_step: 2000
 pretrain_step: 10000

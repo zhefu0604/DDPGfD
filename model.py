@@ -1,16 +1,19 @@
 import torch.nn as nn
 
+# number of nodes per hidden layer. There are 2 hidden layers.
+HIDDEN_LAYERS = 64
+
 
 class ActorNet(nn.Module):
     def __init__(self, in_dim, out_dim, device):
         super(ActorNet, self).__init__()
         self.device = device
         self.net = nn.Sequential(
-            nn.Linear(in_dim, 64),
+            nn.Linear(in_dim, HIDDEN_LAYERS),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS),
             nn.ReLU(),
-            nn.Linear(64, out_dim),
+            nn.Linear(HIDDEN_LAYERS, out_dim),
             nn.Tanh(),
         )  # +-1 output
 
@@ -29,11 +32,11 @@ class CriticNet(nn.Module):
         self.device = device
         in_dim = s_dim + a_dim
         self.net = nn.Sequential(
-            nn.Linear(in_dim, 64),
+            nn.Linear(in_dim, HIDDEN_LAYERS),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS),
             nn.ReLU(),
-            nn.Linear(64, 1),
+            nn.Linear(HIDDEN_LAYERS, 1),
         )
 
     def forward(self, sa_pairs):

@@ -10,7 +10,7 @@ import logging
 import gym
 import pickle
 import trajectory.config as config
-from training_utils import TrainingProgress, timeSince, load_conf
+from training_utils import TrainingProgress, time_since, load_conf
 from agent import DDPGfDAgent, DATA_RUNTIME, DATA_DEMO
 from logger import logger_setup
 from os.path import join as opj
@@ -312,23 +312,22 @@ class RLTrainer:
                 with open(fname, 'rb') as f:
                     data = pickle.load(f)
                 for i in range(len(data)):
-                    for j in range(data[i]['state'].shape[0]):
-                        # Extract demonstration.
-                        s, a, r, s2 = data[i]
+                    # Extract demonstration.
+                    s, a, r, s2 = data[i]
 
-                        # Convert to be pytorch compatible.
-                        s_tensor = torch.from_numpy(s).float()
-                        s2_tensor = torch.from_numpy(s2).float()
-                        action = torch.from_numpy(a).float()
+                    # Convert to be pytorch compatible.
+                    s_tensor = torch.from_numpy(s).float()
+                    s2_tensor = torch.from_numpy(s2).float()
+                    action = torch.from_numpy(a).float()
 
-                        # Add one-step to memory.
-                        self.agent.memory.add((
-                            s_tensor,
-                            action,
-                            torch.tensor([r]).float(),
-                            s2_tensor,
-                            torch.tensor([self.agent.conf.gamma]),
-                            DATA_DEMO if not dconf.random else DATA_RUNTIME))
+                    # Add one-step to memory.
+                    self.agent.memory.add((
+                        s_tensor,
+                        action,
+                        torch.tensor([r]).float(),
+                        s2_tensor,
+                        torch.tensor([self.agent.conf.gamma]),
+                        DATA_DEMO if not dconf.random else DATA_RUNTIME))
 
                 self.logger.info(
                     '{} Demo Trajectories Loaded. Total Experience={}'.format(
@@ -341,7 +340,7 @@ class RLTrainer:
             self.logger.info('No Demo Trajectory Loaded')
 
     def update_agent(self, update_step):
-        """Perform a gradient update step for the actor and critic.
+        """Sample experience and update.
 
         Parameters
         ----------
@@ -359,32 +358,35 @@ class RLTrainer:
         int
             the total number of samples in the training batches
         """
-        # 2. Sample experience and update
         losses_critic = []
         losses_actor = []
         demo_cnt = []
         batch_sz = 0
         if self.agent.memory.ready():
             for _ in range(update_step):
+                # Sample a batch of data.
                 (batch_s, batch_a, batch_r, batch_s2, batch_gamma,
                  batch_flags), weights, idxes = self.agent.memory.sample(
                     self.conf.batch_size)
 
-                batch_s, batch_a, batch_r, batch_s2, batch_gamma, weights = \
-                    batch_s.to(self.device), batch_a.to(self.device), \
-                    batch_r.to(self.device), batch_s2.to(self.device), \
-                    batch_gamma.to(self.device), \
-                    torch.from_numpy(weights.reshape(-1, 1)).float().to(
-                        self.device)
-
+                # Convert to pytorch compatible object.
+                batch_s = batch_s.to(self.device)
+                batch_a = batch_a.to(self.device)
+                batch_r = batch_r.to(self.device)
+                batch_s2 = batch_s2.to(self.device)
+                batch_gamma = batch_gamma.to(self.device)
+                weights = torch.from_numpy(weights.reshape(-1, 1)).float().to(
+                    self.device)
                 batch_sz += batch_s.shape[0]
-                with torch.no_grad():
-                    action_tgt = self.agent.actor_t(batch_s)
-                    y_tgt = batch_r + batch_gamma * self.agent.critic_t(
-                        torch.cat((batch_s, action_tgt), dim=1))
 
-                self.agent.zero_grad()
+                # Compute the target for the critic.
+                with torch.no_grad():
+                    action_tgt = self.agent.actor_t(batch_s2)
+                    y_tgt = batch_r + batch_gamma * self.agent.critic_t(
+                        torch.cat((batch_s2, action_tgt), dim=1))
+
                 # Critic loss
+                self.agent.zero_grad()
                 self.optimizer_critic.zero_grad()
                 q_b = self.agent.critic_b(torch.cat((batch_s, batch_a), dim=1))
                 loss_critic = (self.q_criterion(q_b, y_tgt) * weights).mean()
@@ -406,6 +408,7 @@ class RLTrainer:
                 loss_actor.backward()
                 self.optimizer_actor.step()
 
+                # Update priorities in the replay buffer. TODO: check
                 priority = ((q_b.detach() - y_tgt).pow(2) + q_act.detach().pow(
                     2)).numpy().ravel() + self.agent.conf.const_min_priority
                 priority[batch_flags == DATA_DEMO] += \
@@ -414,6 +417,7 @@ class RLTrainer:
                 if not self.agent.conf.no_per:
                     self.agent.memory.update_priorities(idxes, priority)
 
+                # Add the losses for this training step.
                 losses_actor.append(loss_actor.item())
                 losses_critic.append(loss_critic.item())
 
@@ -439,7 +443,7 @@ class RLTrainer:
                 'critic_loss={:.8f}, '
                 'batch_sz={}, '
                 'Demo_ratio={:.8f}'.format(
-                    timeSince(start_time),
+                    time_since(start_time),
                     step,
                     self.conf.pretrain_step,
                     losses_actor / batch_sz,
@@ -489,6 +493,11 @@ class RLTrainer:
             eps_batch_sz = 0
             eps_demo_n = 0
 
+            # Clear memory from the prior environment. This is to deal with the
+            # explosion in memory.
+            if self.env.sim is not None:
+                self.env.sim.data_by_vehicle.clear()
+
             # Choose a new environment.
             self.env = random.sample(self.all_envs, 1)[0]
 
@@ -504,16 +513,22 @@ class RLTrainer:
             action_lst = []
 
             while not done:
-                # 1. Run environment step
                 with torch.no_grad():
+                    print(s_tensor)
                     # s_tensor = self.agent.obs2tensor(state)
+
+                    # Compute noisy actions by the policy.
                     action = [
                         self.agent.actor_b(s_tensor[i].to(
                             self.device)[None])[0] +
                         torch.from_numpy(self.action_noise()).float()
                         for i in range(n_agents)]
                     action_lst.extend([act.numpy() for act in action])
+
+                    # Run environment step.
                     s2, r, done, _ = self.env.step([a.numpy() for a in action])
+
+                    # Add one-step to memory.
                     s2_tensor = [
                         self.agent.obs2tensor(s2[i]) for i in range(n_agents)]
                     for i in range(n_agents):
@@ -523,13 +538,13 @@ class RLTrainer:
                             torch.tensor([r[i]]).float(),
                             s2_tensor[i],
                             torch.tensor([self.agent.conf.gamma]),
-                            DATA_RUNTIME))  # Add one-step to memory
+                            DATA_RUNTIME))
 
-                # 3. Record episodic statistics
+                    s_tensor = s2_tensor
+
+                # Record episodic statistics.
                 eps_reward += np.mean(r)
                 eps_length += 1
-
-                s_tensor = s2_tensor
 
             # Perform policy update.
             losses_critic, losses_actor, demo_n, batch_sz = self.update_agent(
@@ -550,9 +565,9 @@ class RLTrainer:
                 'Demo_ratio={:.8f}, '
                 'action_mean={:.8f}, '
                 'action_std=={:.8f}'.format(
-                    timeSince(start_time),
+                    time_since(start_time),
                     self.episode,
-                    timeSince(eps_since),
+                    time_since(eps_since),
                     eps_actor_loss / eps_batch_sz,
                     eps_critic_loss / eps_batch_sz,
                     eps_length, eps_reward, eps_demo_n / eps_batch_sz,
@@ -560,11 +575,9 @@ class RLTrainer:
                     np.std(action_lst),
                 ))
 
-            # Update target
-            self.agent.update_target(
-                self.agent.actor_b, self.agent.actor_t, self.episode)
-            self.agent.update_target(
-                self.agent.critic_b, self.agent.critic_t, self.episode)
+            # Update target.
+            self.agent.update_target(self.agent.actor_b, self.agent.actor_t)
+            self.agent.update_target(self.agent.critic_b, self.agent.critic_t)
 
             self.tp.record_step(
                 epoch=self.episode,
@@ -573,7 +586,7 @@ class RLTrainer:
                     'total_reward': eps_reward,
                     'length': eps_length,
                     'avg_reward': eps_reward / eps_length,
-                    'elapsed_time': timeSince(eps_since, return_seconds=True),
+                    'elapsed_time': time_since(eps_since, return_seconds=True),
                     'actor_loss_mean': eps_actor_loss / eps_batch_sz,
                     'critic_loss_mean': eps_critic_loss / eps_batch_sz,
                     'eps_length': eps_length,

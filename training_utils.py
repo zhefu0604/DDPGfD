@@ -3,19 +3,18 @@ import time
 import math
 import errno
 import torch
-from torchvision import transforms as tvtf
-from torch.utils.data import Dataset
-from shutil import copy2
-from torch import nn
 import pickle
 import os
-from collections import OrderedDict
 import matplotlib
 import prodict
 import yaml
 import logging
 import matplotlib.pyplot as plt
 import torch.nn.init as init
+from torch import nn
+from shutil import copy2
+from collections import OrderedDict
+from torch.utils.data import Dataset
 
 matplotlib.use('Agg')
 
@@ -23,12 +22,14 @@ np.set_printoptions(suppress=True, precision=5)
 
 
 def load_conf(path):
+    """Load data from a yaml file."""
     with open(path, 'r') as stream:
         yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
     return prodict.Prodict.from_dict(yaml_dict)
 
 
-def timeSince(since, return_seconds=False):
+def time_since(since, return_seconds=False):
+    """Return the elapsed time (in MM SS)."""
     now = time.time()
     s = now - since
     if return_seconds:
@@ -38,23 +39,18 @@ def timeSince(since, return_seconds=False):
     return '%dm %ds' % (m, s)
 
 
-def secondSince(since):
-    now = time.time()
-    s = now - since
-    return s
-
-
 def check_path(path):
+    """Try to create a directory, and raise and error if failed."""
     try:
         os.makedirs(path)  # Support multi-level
         print(path + ' created')
     except OSError as exception:
         if exception.errno != errno.EEXIST:
             raise
-        # print(path, ' exists')
 
 
 class TrainingProgress:
+
     def __init__(self,
                  progress_path,
                  result_path,
@@ -245,99 +241,6 @@ class TrainingProgress:
             yaml.dump(dict, outfile)
 
 
-def initialize_weight(net):
-    for m in net.modules():
-        if isinstance(m, nn.Conv2d):
-            print('Conv2d Init')
-            nn.init.kaiming_normal_(
-                m.weight, mode='fan_out', nonlinearity='relu')
-        elif isinstance(m, (nn.BatchNorm2d, nn.BatchNorm3d)):
-            print('BatchNorm Init')
-            nn.init.constant_(m.weight, 1)
-            nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.Linear):
-            print('Linear Init')
-            nn.init.xavier_uniform(m.weight)
-            nn.init.constant_(m.bias, 1e-3)
-
-
-def partial_load_weight(dict_src, dict_tgt):
-    """
-    Example Usage
-    >>> dict_src = src_net.state_dict()
-    >>> dict_tgt = tgt_net.state_dict()
-    >>> dict_tgt = partial_load_weight(dict_src, dict_tgt)
-    >>> tgt_net.load_state_dict(dict_tgt)
-    """
-
-    keys_src = dict_src.keys()
-    for k in dict_tgt.keys():
-        if k in keys_src:
-            if dict_tgt[k].data.shape == dict_src[k].data.shape:
-                dict_tgt[k].data = dict_src[k].data.clone()
-                # print(k, ' Loaded')
-            else:
-                pass
-                # print(k, ' Size Mismatched')
-    return dict_tgt
-
-
-class ValueMeter:
-    def __init__(self):
-        self.data_dict = {}
-        self.counter_dict = {}
-        self.counter_call = 0
-
-    def record_data(self, dict):
-        # assume values are numpy array or python number
-        for k, v in dict.items():
-            try:
-                self.data_dict[k].append(v)
-            except KeyError:
-                self.data_dict[k] = [v]
-
-    def counter_inc(self, keys):
-        for k in keys:
-            try:
-                self.counter_dict[k] += 1
-            except KeyError:
-                self.counter_dict[k] = 1
-        self.counter_call += 1
-
-    def avg(self):
-        result_dict = {}
-        for k, v in self.data_dict.items():
-            result_dict[k] = np.mean(v)
-        return result_dict
-
-    def c_avg(self):  # counter avf
-        result_dict = {}
-        for k, v in self.counter_dict.items():
-            result_dict[k] = v / self.counter_call
-        return result_dict
-
-    def std(self):
-        result_dict = {}
-        for k, v in self.data_dict.items():
-            result_dict[k] = np.std(v)
-        return result_dict
-
-    def reset(self):
-        self.data_dict = {}
-        self.counter_dict = {}
-        self.counter_call = 0
-
-
-class ConfNamespace(object):
-    def __init__(self, conf_dict, override_dict=None):
-        self.__dict__.update(conf_dict)
-        if override_dict is not None:
-            valid_conf = {k: v for k, v in override_dict.items() if
-                          (v is not None) and (v is not False)}
-            # Argparse default False if action='store_true'
-            self.__dict__.update(valid_conf)
-
-
 class Subset(Dataset):
     def __init__(self, dataset, indices):
         self.dataset = dataset
@@ -348,18 +251,6 @@ class Subset(Dataset):
 
     def __len__(self):
         return len(self.indices)
-
-
-def train_valid_split(dataset, train_ratio, random_indices=None):
-    n = len(dataset)
-    train_n = int(train_ratio * n)
-    valid_n = n - train_n
-    assert train_ratio <= 1
-    print('Training set:', train_n, ' , Validation set:', valid_n)
-    indices = random_indices or np.random.permutation(n)
-    assert len(indices) == n
-    return Subset(dataset, indices=indices[0:train_n]), \
-        Subset(dataset, indices=indices[train_n:n])
 
 
 def weight_init(m):
@@ -428,39 +319,3 @@ def weight_init(m):
                 init.orthogonal_(param.data)
             else:
                 init.normal_(param.data)
-
-
-def get_eps_decay(start, final, iter_n):
-    return math.exp((math.log(final / start) / iter_n))
-
-
-class ExplorationRate:  # Epsilon greedy, Prob{eps} random , Prob{1-eps} greedy
-    def __init__(self, init_eps, decay_iter, eps_min, eval_eps):
-        self.init_eps = init_eps
-        self.eps = init_eps
-        self.decay = get_eps_decay(init_eps, eps_min, decay_iter)
-        self.eps_min = eps_min
-        self.iter = 0
-        self.eval_eps = eval_eps
-
-    def update(self):
-        self.eps = max(self.eps_min, self.eps * self.decay)
-        self.iter += 1
-
-    def restore(self, itr):
-        self.eps = max(self.eps_min, self.init_eps * (self.decay ** itr))
-
-
-def denormalize_image(img,
-                      mean=[0.485, 0.456, 0.406],
-                      std=[0.229, 0.224, 0.225]):
-    # assert img.shape[0] == 3, 'Image is in C,H,W format,float tensor'
-    if img.shape[0] == 4:
-        img = img[0]
-    inv_normalize = tvtf.Normalize(
-        mean=np.divide(-np.array(mean), np.array(std)),
-        std=1 / np.array(std)
-    )
-    img = inv_normalize(img)
-    img = np.moveaxis(img.numpy(), 0, 2)  # 480,640,3 float
-    return img

@@ -5,6 +5,13 @@ import pickle
 import numpy as np
 import pandas as pd
 
+# number of backward timesteps to add to observation
+N_STEPS = 5
+# headway scaling term
+HEADWAY_SCALE = 100.
+# speed scaling term
+SPEED_SCALE = 40.
+
 
 def parse_args(args):
     """Parse command-line arguments."""
@@ -51,15 +58,15 @@ def reward_fn(headway,
 
     Parameters
     ----------
-    headway : list of float
+    headway : array_like
         list of vehicle headways over time
-    accel : list of float
+    accel : array_like
         list of vehicle accelerations over time
-    speed : list of float
+    speed : array_like
         list of vehicle speed over time
-    leader_speed : list of float
+    leader_speed : array_like
         list of vehicle lead speeds over time
-    instant_energy_consumption : list of float
+    instant_energy_consumption : array_like
         list of vehicle instantaneous energy consumption over time
     t : int
         the time index
@@ -79,7 +86,8 @@ def reward_fn(headway,
     elif h > 100:
         reward -= 0.1 * huber_loss(h - 100)
 
-    reward -= max(instant_energy_consumption[t], 0) + 0.1 * accel[t] ** 2
+    # reward -= max(instant_energy_consumption[t], 0) + 0.1 * accel[t] ** 2
+    reward -= accel[t] ** 2
 
     return reward
 
@@ -94,15 +102,15 @@ def obs(headway,
 
     Parameters
     ----------
-    headway : list of float
+    headway : array_like
         list of vehicle headways over time
-    accel : list of float
+    accel : array_like
         list of vehicle accelerations over time
-    speed : list of float
+    speed : array_like
         list of vehicle speed over time
-    leader_speed : list of float
+    leader_speed : array_like
         list of vehicle lead speeds over time
-    instant_energy_consumption : list of float
+    instant_energy_consumption : array_like
         list of vehicle instantaneous energy consumption over time
     t : int
         the time index
@@ -112,15 +120,17 @@ def obs(headway,
     array_like
         the observation
     """
-    n_steps = 5
-
-    min_t = max(0, t - n_steps + 1)
+    min_t = max(0, t - N_STEPS + 1)
     max_t = t + 1
+    n_missed = N_STEPS - max_t + min_t
 
     return np.array(
-        [0.] * (n_steps - max_t + min_t) + speed[min_t: max_t] +
-        [0.] * (n_steps - max_t + min_t) + leader_speed[min_t: max_t] +
-        [0.] * (n_steps - max_t + min_t) + headway[min_t: max_t])
+        [0.] * n_missed +
+        list(speed[min_t: max_t] / SPEED_SCALE) +
+        [0.] * n_missed +
+        list(leader_speed[min_t: max_t] / SPEED_SCALE) +
+        [0.] * n_missed +
+        list(headway[min_t: max_t] / HEADWAY_SCALE))
 
 
 def action(headway,
@@ -133,15 +143,15 @@ def action(headway,
 
     Parameters
     ----------
-    headway : list of float
+    headway : array_like
         list of vehicle headways over time
-    accel : list of float
+    accel : array_like
         list of vehicle accelerations over time
-    speed : list of float
+    speed : array_like
         list of vehicle speed over time
-    leader_speed : list of float
+    leader_speed : array_like
         list of vehicle lead speeds over time
-    instant_energy_consumption : list of float
+    instant_energy_consumption : array_like
         list of vehicle instantaneous energy consumption over time
     t : int
         the time index
@@ -166,14 +176,15 @@ def main(args):
 
     data = []
     for av_id in av_ids:
+        # Extract data for this AV.
         df_i = df[df.id == av_id]
         df_i = df_i.sort_values("time")
 
-        headway = list(df_i.headway)
-        accel = list(df_i.accel)
-        speed = list(df_i.speed)
-        leader_speed = list(df_i.leader_speed)
-        instant_energy_consumption = list(df_i.instant_energy_consumption)
+        headway = np.array(df_i.headway)
+        accel = np.array(df_i.accel)
+        speed = np.array(df_i.speed)
+        leader_speed = np.array(df_i.leader_speed)
+        instant_energy_consumption = np.array(df_i.instant_energy_consumption)
 
         for t in range(len(headway) - 1):
             s = obs(
