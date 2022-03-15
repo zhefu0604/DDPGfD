@@ -5,7 +5,9 @@ import logging
 from model import ActorNet, CriticNet
 from replay_memory import PrioritizedReplayBuffer
 
+# constant signifying that data was collected from a demonstration
 DATA_DEMO = 0
+# constant signifying that data was collected during training
 DATA_RUNTIME = 1
 
 
@@ -41,19 +43,11 @@ class DDPGfDAgent(nn.Module):
     def obs2tensor(state):
         return torch.from_numpy(state).float()
 
-    def update_target(self, src, tgt, episode=-1):  # update to target network
-        if not self.conf.discrete_update or episode == -1:  # soft update
-            for src_param, tgt_param in zip(
-                    src.parameters(), tgt.parameters()):
-                tgt_param.data.copy_(
-                    self.conf.tau * src_param.data
-                    + (1.0 - self.conf.tau) * tgt_param.data)
-            self.logger.debug('(Soft)Update target network')
-        else:
-            if episode % self.conf.discrete_update_eps == 0:
-                for src_param, tgt_param in zip(
-                        src.parameters(), tgt.parameters()):
-                    tgt_param.data.copy_(src_param.data)
-                self.logger.info(
-                    '(Discrete)Update target network,episode={}'.format(
-                        episode))
+    def update_target(self, src, tgt):
+        """Perform soft target updates."""
+        for src_param, tgt_param in zip(src.parameters(), tgt.parameters()):
+            tgt_param.data.copy_(
+                self.conf.tau * src_param.data
+                + (1.0 - self.conf.tau) * tgt_param.data)
+
+        self.logger.debug('(Soft)Update target network')

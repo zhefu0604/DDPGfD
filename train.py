@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import argparse
 import random
@@ -25,24 +26,8 @@ logging_level = logging.DEBUG  # logging.DEBUG
 
 
 class OrnsteinUhlenbeckActionNoise:
-    """TODO."""
 
     def __init__(self, mu, sigma, theta=.15, dt=1e-2, x0=None):
-        """TODO.
-
-        Parameters
-        ----------
-        mu : TODO
-            TODO
-        sigma : TODO
-            TODO
-        theta : TODO
-            TODO
-        dt : TODO
-            TODO
-        x0 : TODO
-            TODO
-        """
         self.theta = theta
         self.mu = mu
         self.sigma = sigma
@@ -52,7 +37,6 @@ class OrnsteinUhlenbeckActionNoise:
         self.reset()
 
     def __call__(self):
-        """TODO."""
         x = self.x_prev + \
             self.theta * (self.mu - self.x_prev) * self.dt + \
             self.sigma * np.sqrt(self.dt) * \
@@ -61,27 +45,24 @@ class OrnsteinUhlenbeckActionNoise:
         return x
 
     def reset(self):
-        """TODO."""
         self.x_prev = self.x0 or np.zeros_like(self.mu)
 
     def __repr__(self):
-        """TODO."""
         return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(
             self.mu, self.sigma)
 
 
 class RLTrainer:
-    """TODO."""
 
     def __init__(self, conf_path, evaluate=False):
         """Instantiate the RL algorithm.
 
         Parameters
         ----------
-        conf_path : TODO
-            TODO
+        conf_path : str
+            path to the configuration yaml file
         evaluate : bool
-            TODO
+            whether running evaluations
         """
         self.full_conf = load_conf(conf_path)
         self.conf = self.full_conf.train_config
@@ -147,7 +128,7 @@ class RLTrainer:
 
     @staticmethod
     def _create_envs():
-        """TODO."""
+        """Create a separate environment for each trajectory."""
         filenames = [
             "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_0_4597.csv",
             "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_1_4927.csv",
@@ -254,11 +235,10 @@ class RLTrainer:
         return all_envs
 
     def restore_progress(self):
-        """TODO."""
-        # TODO. tps only for restore process from conf
+        """Restore progress from a previous run to continue training."""
         self.tp.restore_progress(self.conf.tps)
 
-        # TODO
+        # Restore weights and biases.
         self.agent.actor_b.load_state_dict(self.tp.restore_model_weight(
                 self.conf.tps, self.device, prefix='actor_b'))
         self.agent.actor_t.load_state_dict(self.tp.restore_model_weight(
@@ -268,7 +248,7 @@ class RLTrainer:
         self.agent.critic_t.load_state_dict(self.tp.restore_model_weight(
             self.conf.tps, self.device, prefix='critic_t'))
 
-        # TODO
+        # Restore random seeds and number of episodes previously trained.
         self.episode = self.tp.get_meta('saved_episode') + 1
         np.random.set_state(self.tp.get_meta('np_random_state'))
         torch.random.set_rng_state(self.tp.get_meta('torch_random_state'))
@@ -276,7 +256,7 @@ class RLTrainer:
         self.logger.info('Restore Progress, Episode={}'.format(self.episode))
 
     def summary(self):
-        """TODO."""
+        """Log data to tensorboard and save policy parameters."""
         # call Test/Evaluation here
         self.tp.add_meta({
             'saved_episode': self.episode,
@@ -284,18 +264,12 @@ class RLTrainer:
             'torch_random_state': torch.random.get_rng_state()
         })
 
-        # TODO
-        self.save_progress(display=True)
+        # Save the policy weights, biases, and configuration parameters.
+        self.save_progress()
 
-    def save_progress(self, display=False):
-        """TODO.
-
-        Parameters
-        ----------
-        display : bool
-            TODO
-        """
-        # TODO
+    def save_progress(self):
+        """Save the policy weights, biases, and configuration parameters."""
+        # Save policy parameters.
         self.tp.save_model_weight(
             self.agent.actor_b, self.episode, prefix='actor_b')
         self.tp.save_model_weight(
@@ -305,18 +279,16 @@ class RLTrainer:
         self.tp.save_model_weight(
             self.agent.critic_t, self.episode, prefix='critic_t')
 
-        # TODO
+        # Save configuration.
         self.tp.save_progress(self.episode)
         self.tp.save_conf(self.conf.to_dict())
 
-        # TODO
-        if display:
-            self.logger.info('Config name ' + self.conf.exp_name)
-            self.logger.info('Progress Saved, current episode={}'.format(
-                self.episode))
+        self.logger.info('Config name ' + self.conf.exp_name)
+        self.logger.info('Progress Saved, current episode={}'.format(
+            self.episode))
 
     def set_optimizer(self):
-        """TODO."""
+        """Create the optimizer objects."""
         # Create actor optimizer.
         self.optimizer_actor = torch.optim.Adam(
             self.agent.actor_b.parameters(),
@@ -330,62 +302,62 @@ class RLTrainer:
             weight_decay=self.conf.w_decay)
 
     def demo2memory(self):
-        """TODO."""
+        """Import demonstration from pkl files to the replay buffer."""
         dconf = self.full_conf.demo_config
         if dconf.load_demo_data:
             filenames = [
                 x for x in os.listdir(dconf.demo_dir) if x.endswith(".pkl")]
             for ix, f_idx in enumerate(filenames):
                 fname = opj(dconf.demo_dir, f_idx)
-                print(fname)
                 with open(fname, 'rb') as f:
                     data = pickle.load(f)
                 for i in range(len(data)):
                     for j in range(data[i]['state'].shape[0]):
-                        s = data[i]['state'][j, :]
-                        a = data[i]['action'][j, :]
-                        r = data[i]['reward'][j, 0]
-                        s2 = data[i]['next_state'][j, :]
+                        # Extract demonstration.
+                        s, a, r, s2 = data[i]
 
+                        # Convert to be pytorch compatible.
                         s_tensor = torch.from_numpy(s).float()
                         s2_tensor = torch.from_numpy(s2).float()
                         action = torch.from_numpy(a).float()
 
-                        # Add one-step to memory, last step added in pop with
-                        # done=True
+                        # Add one-step to memory.
                         self.agent.memory.add((
                             s_tensor,
                             action,
                             torch.tensor([r]).float(),
                             s2_tensor,
                             torch.tensor([self.agent.conf.gamma]),
-                            DATA_DEMO))
+                            DATA_DEMO if not dconf.random else DATA_RUNTIME))
 
                 self.logger.info(
                     '{} Demo Trajectories Loaded. Total Experience={}'.format(
                         ix + 1, len(self.agent.memory)))
-            # self.agent.memory.set_protect_size(len(self.agent.memory))
+
+            # Prevent demonstrations from being deleted.
+            if not dconf.random:
+                self.agent.memory.set_protect_size(len(self.agent.memory))
         else:
             self.logger.info('No Demo Trajectory Loaded')
 
-    def update_agent(self, update_step):  # update_step iteration
-        """TODO.
+    def update_agent(self, update_step):
+        """Perform a gradient update step for the actor and critic.
 
         Parameters
         ----------
-        update_step : TODO
-            TODO
+        update_step : int
+            number of policy updates to perform
 
         Returns
         -------
-        TODO
-            TODO
-        TODO
-            TODO
-        TODO
-            TODO
-        TODO
-            TODO
+        float
+            critic loss
+        float
+            actor loss
+        int
+            the number of demonstration in the training batches
+        int
+            the total number of samples in the training batches
         """
         # 2. Sample experience and update
         losses_critic = []
@@ -394,7 +366,6 @@ class RLTrainer:
         batch_sz = 0
         if self.agent.memory.ready():
             for _ in range(update_step):
-                # TODO: remove gamma and flags
                 (batch_s, batch_a, batch_r, batch_s2, batch_gamma,
                  batch_flags), weights, idxes = self.agent.memory.sample(
                     self.conf.batch_size)
@@ -415,27 +386,27 @@ class RLTrainer:
                 self.agent.zero_grad()
                 # Critic loss
                 self.optimizer_critic.zero_grad()
-                Q_b = self.agent.critic_b(torch.cat((batch_s, batch_a), dim=1))
-                loss_critic = (self.q_criterion(Q_b, y_tgt) * weights).mean()
+                q_b = self.agent.critic_b(torch.cat((batch_s, batch_a), dim=1))
+                loss_critic = (self.q_criterion(q_b, y_tgt) * weights).mean()
 
                 # Record Demo count
                 d_flags = torch.from_numpy(batch_flags)
                 demo_select = d_flags == DATA_DEMO
-                N_act = demo_select.sum().item()
-                demo_cnt.append(N_act)
+                n_act = demo_select.sum().item()
+                demo_cnt.append(n_act)
                 loss_critic.backward()
                 self.optimizer_critic.step()
 
                 # Actor loss
                 self.optimizer_actor.zero_grad()
                 action_b = self.agent.actor_b(batch_s)
-                Q_act = self.agent.critic_b(
+                q_act = self.agent.critic_b(
                     torch.cat((batch_s, action_b), dim=1))
-                loss_actor = -torch.mean(Q_act)
+                loss_actor = -torch.mean(q_act)
                 loss_actor.backward()
                 self.optimizer_actor.step()
 
-                priority = ((Q_b.detach() - y_tgt).pow(2) + Q_act.detach().pow(
+                priority = ((q_b.detach() - y_tgt).pow(2) + q_act.detach().pow(
                     2)).numpy().ravel() + self.agent.conf.const_min_priority
                 priority[batch_flags == DATA_DEMO] += \
                     self.agent.conf.const_demo_priority
@@ -446,10 +417,7 @@ class RLTrainer:
                 losses_actor.append(loss_actor.item())
                 losses_critic.append(loss_critic.item())
 
-        if np.sum(demo_cnt) == 0:
-            demo_n = 1e-10
-        else:
-            demo_n = np.sum(demo_cnt)
+        demo_n = max(sum(demo_cnt), 1e-10)
 
         return np.sum(losses_critic), np.sum(losses_actor), demo_n, batch_sz
 
@@ -507,9 +475,8 @@ class RLTrainer:
         self.episode = 1  # Restore
 
     def train(self):
-        """TODO."""
+        """Perform end-to-end training procedure."""
         self.agent.train()
-        # Define criterion
 
         start_time = time.time()
         while self.episode <= self.conf.n_episode:  # self.iter start from 1
@@ -565,9 +532,9 @@ class RLTrainer:
                 s_tensor = s2_tensor
 
             # Perform policy update.
-            # for _ in range(10):  TODO
             losses_critic, losses_actor, demo_n, batch_sz = self.update_agent(
                 self.conf.update_step)
+
             eps_actor_loss += losses_actor
             eps_critic_loss += losses_critic
             eps_batch_sz += batch_sz
@@ -620,9 +587,9 @@ class RLTrainer:
             self.episode += 1
 
 
-def main():
+def main(args):
+    """Perform the training procedure."""
     parser = argparse.ArgumentParser()
-
     parser.add_argument(
         'conf',
         type=str,
@@ -631,29 +598,21 @@ def main():
         '--eval',
         action='store_true', default=False,
         help='Evaluation mode')
-    parser.add_argument(
-        '--collect',
-        action='store_true', default=False,
-        help='Collect Demonstration Data')
-    parser.add_argument(
-        '-n_collect',
-        type=int, default=100,
-        help='Number of episode for demo collection')
 
-    args = parser.parse_args()
-    conf_path = args.conf
+    # Parse command-line arguments.
+    flags = parser.parse_args(args)
 
-    trainer = RLTrainer(conf_path, args.eval)
-    if args.eval:
-        trainer.eval(save_fig=False)
-    elif args.collect:
-        trainer.collect_demo(args.n_collect)
-    else:
-        if trainer.conf.pretrain_demo:
-            trainer.pretrain()
-        trainer.train()
+    # Create the RL trainer object.
+    trainer = RLTrainer(flags.conf, flags.eval)
+
+    # Pretrain the policy for a number of steps.
+    if trainer.conf.pretrain_demo:
+        trainer.pretrain()
+
+    # Run the training procedure.
+    trainer.train()
 
 
 if __name__ == '__main__':
     os.putenv('DISPLAY', ':0')
-    main()
+    main(sys.argv[1:])

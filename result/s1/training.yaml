@@ -17,18 +17,12 @@ train_config:
   pretrain_step: 10000
   pretrain_save_step: 2000
 
-  eval_episode: 20
-  train_gui: false
-  eval_gui: true
-
 agent_config:
   state_dim: 16
   action_dim: 4
   gamma: 0.9 # Reward discount
   seed: 54760
   replay_buffer_size: 100000
-  discrete_update: false
-  discrete_update_eps: 5 # Discrete update every N episode
   tau: 0.3 # Continuous update, source network portion, per episode
   action_noise_std: 0.1
   const_demo_priority: 0.99 # Should be less than 1
@@ -38,6 +32,4 @@ agent_config:
 demo_config:
   load_demo_data: true
   demo_dir: './demo/random'
-  demo_N: 100 # manually fill in
-  load_N: 100  # manually fill in
-  prefix: 'demo_' # demo_i.pkl
+  random: true
