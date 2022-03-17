@@ -77,17 +77,20 @@ def reward_fn(headway,
     float
         the reward
     """
+    scale = 1.
     reward = 0
 
     h = headway[t]
 
     if h < 4:
-        reward -= 0.1 * huber_loss(h - 4)
+        reward -= scale  # * 0.1 * huber_loss(h - 4, delta=0.25)
     elif h > 100:
-        reward -= 0.1 * huber_loss(h - 100)
+        reward -= scale  # * 0.1 * huber_loss(h - 100, delta=0.25)
 
-    # reward -= max(instant_energy_consumption[t], 0) + 0.1 * accel[t] ** 2
-    reward -= accel[t] ** 2
+    reward -= scale * (
+        max(instant_energy_consumption[t], 0) + 0.1 * accel[t] ** 2)
+
+    reward += scale * 1.1792311343986146
 
     return reward
 
@@ -126,11 +129,11 @@ def obs(headway,
 
     return np.array(
         [0.] * n_missed +
-        list(speed[min_t: max_t] / SPEED_SCALE) +
+        list(speed[min_t: max_t] / SPEED_SCALE - 0.5) +
         [0.] * n_missed +
-        list(leader_speed[min_t: max_t] / SPEED_SCALE) +
+        list(leader_speed[min_t: max_t] / SPEED_SCALE - 0.5) +
         [0.] * n_missed +
-        list(headway[min_t: max_t] / HEADWAY_SCALE))
+        list(np.clip(headway[min_t: max_t], a_min=0, a_max=100) / HEADWAY_SCALE - 0.5))
 
 
 def action(headway,

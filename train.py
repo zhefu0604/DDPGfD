@@ -9,12 +9,14 @@ import numpy as np
 import logging
 import gym
 import pickle
+import csv
 import trajectory.config as config
 from training_utils import TrainingProgress, time_since, load_conf
 from agent import DDPGfDAgent, DATA_RUNTIME, DATA_DEMO
 from logger import logger_setup
 from os.path import join as opj
 from gym.envs.registration import register
+from collections import deque
 
 np.set_printoptions(suppress=True, precision=4)
 
@@ -126,74 +128,82 @@ class RLTrainer:
             np.zeros(self.full_conf.agent_config.action_dim),
             self.full_conf.agent_config.action_noise_std)
 
+        # init
+        self.steps = 0
+        self.epoch_episode_steps = []
+        self.epoch_episode_rewards = []
+        self.epoch_episodes = 0
+        self.epoch = 0
+        self.episode_rew_history = deque(maxlen=100)
+
     @staticmethod
     def _create_envs():
         """Create a separate environment for each trajectory."""
         filenames = [
             "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_0_4597.csv",
-            "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_1_4927.csv",
-            "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_0_6825.csv",
-            "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_1_4938.csv",
-            "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_0_4523.csv",
-            "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_1_4582.csv",
-            "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_0_5672.csv",
-            "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_1_4817.csv",
-            "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_0_4917.csv",
-            "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_1_11342.csv",
-            "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_0_4463.csv",
-            "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_1_4386.csv",
-            "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_0_3977.csv",
-            "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_1_3918.csv",
-            "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_0_4223.csv",
-            "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_1_4422.csv",
-            # Arwa said this trajectory might has sensor malfunction issue
-            # "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_0_4331.csv",
-            "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_1_3778.csv",
-            # used for dashboard testing
-            # "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_0_6438.csv",
-            "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_1_4102.csv",
-            "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_0_4937.csv",
-            "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_1_4364.csv",
-            "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_0_4540.csv",
-            "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_1_4028.csv",
-            "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_0_5016.csv",
-            "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_1_4185.csv",
-            "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_0_4200.csv",
-            "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_1_4622.csv",
-            "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_0_4125.csv",
-            "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_1_4111.csv",
-            "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_0_4357.csv",
-            "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_1_4173.csv",
-            "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_0_4427.csv",
-            "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_1_4496.csv",
-            "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_0_11294.csv",
-            "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_1_6116.csv",
-            "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_0_4101.csv",
-            "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_1_4069.csv",
-            "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_0_4796.csv",
-            "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_1_4436.csv",
-            "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_0_3889.csv",
-            # used for dashboard testing
-            # "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_1_3685.csv",
-            "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_0_5778.csv",
-            "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_1_4387.csv",
-            "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_0_16467.csv",
-            "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_1_6483.csv",
-            "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_0_4433.csv",
-            "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_1_4288.csv",
-            "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_0_4025.csv",
-            "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_1_3973.csv",
-            "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_0_3957.csv",
-            "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_1_3621.csv",
-            # used for dashboard testing
-            # "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_0_7050.csv",
-            "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_1_5292.csv",
-            "2021-04-26-21-13-18_2T3MWRFVXLW056972_masterArray_0_4595.csv",
-            "2021-04-26-21-13-18_2T3MWRFVXLW056972_masterArray_1_4664.csv",
-            "2021-04-27-21-37-32_2T3MWRFVXLW056972_masterArray_0_3836.csv",
-            "2021-04-27-21-37-32_2T3MWRFVXLW056972_masterArray_1_3558.csv",
-            "2021-04-29-21-16-14_2T3MWRFVXLW056972_masterArray_0_4190.csv",
-            "2021-04-29-21-16-14_2T3MWRFVXLW056972_masterArray_1_4005.csv",
+            # "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_1_4927.csv",
+            # "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_0_6825.csv",
+            # "2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_1_4938.csv",
+            # "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_0_4523.csv",
+            # "2021-03-10-21-54-16_2T3MWRFVXLW056972_masterArray_1_4582.csv",
+            # "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_0_5672.csv",
+            # "2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_1_4817.csv",
+            # "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_0_4917.csv",
+            # "2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_1_11342.csv",
+            # "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_0_4463.csv",
+            # "2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_1_4386.csv",
+            # "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_0_3977.csv",
+            # "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_1_3918.csv",
+            # "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_0_4223.csv",
+            # "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_1_4422.csv",
+            # # Arwa said this trajectory might has sensor malfunction issue
+            # # "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_0_4331.csv",
+            # "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_1_3778.csv",
+            # # used for dashboard testing
+            # # "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_0_6438.csv",
+            # "2021-03-24-12-39-15_2T3MWRFVXLW056972_masterArray_1_4102.csv",
+            # "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_0_4937.csv",
+            # "2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_1_4364.csv",
+            # "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_0_4540.csv",
+            # "2021-03-26-21-26-45_2T3MWRFVXLW056972_masterArray_1_4028.csv",
+            # "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_0_5016.csv",
+            # "2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_1_4185.csv",
+            # "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_0_4200.csv",
+            # "2021-03-31-21-39-05_2T3MWRFVXLW056972_masterArray_1_4622.csv",
+            # "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_0_4125.csv",
+            # "2021-04-02-21-31-47_2T3MWRFVXLW056972_masterArray_1_4111.csv",
+            # "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_0_4357.csv",
+            # "2021-04-05-21-39-05_2T3MWRFVXLW056972_masterArray_1_4173.csv",
+            # "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_0_4427.csv",
+            # "2021-04-06-21-18-22_2T3MWRFVXLW056972_masterArray_1_4496.csv",
+            # "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_0_11294.csv",
+            # "2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_1_6116.csv",
+            # "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_0_4101.csv",
+            # "2021-04-07-21-22-07_2T3MWRFVXLW056972_masterArray_1_4069.csv",
+            # "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_0_4796.csv",
+            # "2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_1_4436.csv",
+            # "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_0_3889.csv",
+            # # used for dashboard testing
+            # # "2021-04-15-21-32-46_2T3MWRFVXLW056972_masterArray_1_3685.csv",
+            # "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_0_5778.csv",
+            # "2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_1_4387.csv",
+            # "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_0_16467.csv",
+            # "2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_1_6483.csv",
+            # "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_0_4433.csv",
+            # "2021-04-19-22-09-19_2T3MWRFVXLW056972_masterArray_1_4288.csv",
+            # "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_0_4025.csv",
+            # "2021-04-20-21-42-34_2T3MWRFVXLW056972_masterArray_1_3973.csv",
+            # "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_0_3957.csv",
+            # "2021-04-21-21-45-12_2T3MWRFVXLW056972_masterArray_1_3621.csv",
+            # # used for dashboard testing
+            # # "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_0_7050.csv",
+            # "2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_1_5292.csv",
+            # "2021-04-26-21-13-18_2T3MWRFVXLW056972_masterArray_0_4595.csv",
+            # "2021-04-26-21-13-18_2T3MWRFVXLW056972_masterArray_1_4664.csv",
+            # "2021-04-27-21-37-32_2T3MWRFVXLW056972_masterArray_0_3836.csv",
+            # "2021-04-27-21-37-32_2T3MWRFVXLW056972_masterArray_1_3558.csv",
+            # "2021-04-29-21-16-14_2T3MWRFVXLW056972_masterArray_0_4190.csv",
+            # "2021-04-29-21-16-14_2T3MWRFVXLW056972_masterArray_1_4005.csv",
         ]
 
         all_envs = []
@@ -327,7 +337,7 @@ class RLTrainer:
                         torch.tensor([r]).float(),
                         s2_tensor,
                         torch.tensor([self.agent.conf.gamma]),
-                        DATA_DEMO if not dconf.random else DATA_RUNTIME))
+                        DATA_DEMO))
 
                 self.logger.info(
                     '{} Demo Trajectories Loaded. Total Experience={}'.format(
@@ -408,13 +418,14 @@ class RLTrainer:
                 loss_actor.backward()
                 self.optimizer_actor.step()
 
-                # Update priorities in the replay buffer. TODO: check
-                priority = ((q_b.detach() - y_tgt).pow(2) + q_act.detach().pow(
-                    2)).numpy().ravel() + self.agent.conf.const_min_priority
-                priority[batch_flags == DATA_DEMO] += \
-                    self.agent.conf.const_demo_priority
-
                 if not self.agent.conf.no_per:
+                    # Update priorities in the replay buffer.
+                    priority = ((q_b.detach() - y_tgt).pow(2) +
+                                q_act.detach().pow(2)).numpy().ravel() \
+                        + self.agent.conf.const_min_priority
+                    priority[batch_flags == DATA_DEMO] += \
+                        self.agent.conf.const_demo_priority
+
                     self.agent.memory.update_priorities(idxes, priority)
 
                 # Add the losses for this training step.
@@ -514,9 +525,6 @@ class RLTrainer:
 
             while not done:
                 with torch.no_grad():
-                    print(s_tensor)
-                    # s_tensor = self.agent.obs2tensor(state)
-
                     # Compute noisy actions by the policy.
                     action = [
                         self.agent.actor_b(s_tensor[i].to(
@@ -546,6 +554,13 @@ class RLTrainer:
                 eps_reward += np.mean(r)
                 eps_length += 1
 
+            # More bookkeeping.
+            self.epoch_episode_rewards.append(eps_reward)
+            self.episode_rew_history.append(eps_reward)
+            self.epoch_episode_steps.append(eps_length)
+            self.steps += eps_length
+            self.epoch_episodes += 1
+
             # Perform policy update.
             losses_critic, losses_actor, demo_n, batch_sz = self.update_agent(
                 self.conf.update_step)
@@ -555,49 +570,104 @@ class RLTrainer:
             eps_batch_sz += batch_sz
             eps_demo_n += demo_n
 
-            self.logger.info(
-                '{}: '
-                'Episode {}-Last:{}: '
-                'Actor_loss={:.8f}, '
-                'Critic_loss={:.8f}, '
-                'Step={}, '
-                'Reward={}, '
-                'Demo_ratio={:.8f}, '
-                'action_mean={:.8f}, '
-                'action_std=={:.8f}'.format(
-                    time_since(start_time),
-                    self.episode,
-                    time_since(eps_since),
-                    eps_actor_loss / eps_batch_sz,
-                    eps_critic_loss / eps_batch_sz,
-                    eps_length, eps_reward, eps_demo_n / eps_batch_sz,
-                    np.mean(action_lst),
-                    np.std(action_lst),
-                ))
-
             # Update target.
             self.agent.update_target(self.agent.actor_b, self.agent.actor_t)
             self.agent.update_target(self.agent.critic_b, self.agent.critic_t)
 
-            self.tp.record_step(
-                epoch=self.episode,
-                prefix='episode',
-                new_dict={
-                    'total_reward': eps_reward,
-                    'length': eps_length,
-                    'avg_reward': eps_reward / eps_length,
-                    'elapsed_time': time_since(eps_since, return_seconds=True),
-                    'actor_loss_mean': eps_actor_loss / eps_batch_sz,
-                    'critic_loss_mean': eps_critic_loss / eps_batch_sz,
-                    'eps_length': eps_length,
-                    'Demo_ratio': eps_demo_n / eps_batch_sz
-                },
-                display=False)
+            # TODO
+            # self.tp.record_step(
+            #     epoch=self.episode,
+            #     prefix='episode',
+            #     new_dict={
+            #         'total_reward': eps_reward,
+            #         'length': eps_length,
+            #         'avg_reward': eps_reward / eps_length,
+            #         'elapsed_time': time_since(eps_since, return_seconds=True),
+            #         'actor_loss_mean': eps_actor_loss / eps_batch_sz,
+            #         'critic_loss_mean': eps_critic_loss / eps_batch_sz,
+            #         'eps_length': eps_length,
+            #         'Demo_ratio': eps_demo_n / eps_batch_sz
+            #     },
+            #     display=False)
 
             if self.episode % self.conf.save_every == 0:
+                # Log training performance.
+                self._log_training(
+                    start_time=start_time,
+                    eps_actor_loss=eps_actor_loss,
+                    eps_critic_loss=eps_critic_loss,
+                    eps_batch_sz=eps_batch_sz,
+                    eps_demo_n=eps_demo_n,
+                    action_mean=np.mean(action_lst),
+                    action_std=np.std(action_lst),
+                )
+
+                # Reset epoch statistics.
+                self.epoch_episodes = 0
+                self.epoch_episode_rewards.clear()
+                self.epoch_episode_steps.clear()
+
+                # TODO
                 self.summary()
 
             self.episode += 1
+
+    def _log_training(self,
+                      start_time,
+                      eps_actor_loss,
+                      eps_critic_loss,
+                      eps_batch_sz,
+                      eps_demo_n,
+                      action_mean,
+                      action_std):
+        """Log training statistics.
+
+        Parameters
+        ----------
+        start_time : float
+            the time when training began. This is used to print the total
+            training time.
+        """
+        # Log statistics.
+        duration = time.time() - start_time
+
+        combined_stats = {
+            # Rollout statistics.
+            'rollout/episodes': self.epoch_episodes,
+            'rollout/episode_steps': np.mean(self.epoch_episode_steps),
+            'rollout/return': np.mean(self.epoch_episode_rewards),
+            'rollout/return_history': np.mean(self.episode_rew_history),
+            'rollout/actor_loss_mean': eps_actor_loss / eps_batch_sz,
+            'rollout/critic_loss_mean': eps_critic_loss / eps_batch_sz,
+            'rollout/demo_ratio': eps_demo_n / eps_batch_sz,
+            'action_mean': action_mean,
+            'action_std':  action_std,
+
+            # Total statistics.
+            'total/epochs': self.epoch + 1,
+            'total/steps': self.steps,
+            'total/duration': duration,
+            'total/steps_per_second': self.steps / duration,
+            'total/episodes': self.episode,
+
+        }
+
+        # Save combined_stats in a csv file.
+        # if self._file_path is not None:
+        #     exists = os.path.exists(self._file_path)
+        #     with open(self._file_path, 'a') as f:
+        #         w = csv.DictWriter(f, fieldnames=combined_stats.keys())
+        #         if not exists:
+        #             w.writeheader()
+        #         w.writerow(combined_stats)
+
+        # Print statistics.
+        print("-" * 67)
+        for key in sorted(combined_stats.keys()):
+            val = combined_stats[key]
+            print("| {:<30} | {:<30} |".format(key, val))
+        print("-" * 67)
+        print('')
 
 
 def main(args):

@@ -4,7 +4,6 @@ import torch.nn as nn
 import logging
 from model import ActorNet
 from model import CriticNet
-from training_utils import weight_init
 from replay_memory import PrioritizedReplayBuffer
 
 # constant signifying that data was collected from a demonstration
@@ -35,10 +34,6 @@ class DDPGfDAgent(nn.Module):
 
         # Set random seed.
         self.rs = np.random.RandomState(self.conf.seed)
-
-        # Initialize base policy parameters.
-        self.actor_b.apply(weight_init)
-        self.critic_b.apply(weight_init)
 
         # Initialize target policy parameters.
         self.init_target(self.actor_b, self.actor_t)
