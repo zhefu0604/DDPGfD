@@ -9,17 +9,16 @@ import numpy as np
 import logging
 import gym
 import pickle
-import csv
 import trajectory.config as config
 from gym.envs.registration import register
 from collections import deque
-from agent import DDPGfDAgent
-from agent import DATA_RUNTIME
-from agent import DATA_DEMO
-from logger import logger_setup
-from training_utils import TrainingProgress
-from training_utils import OrnsteinUhlenbeckActionNoise
-from training_utils import load_conf
+from ddpgfd.core.agent import DDPGfDAgent
+from ddpgfd.core.agent import DATA_RUNTIME
+from ddpgfd.core.agent import DATA_DEMO
+from ddpgfd.core.logger import logger_setup
+from ddpgfd.core.training_utils import TrainingProgress
+from ddpgfd.core.training_utils import OrnsteinUhlenbeckActionNoise
+from ddpgfd.core.training_utils import load_conf
 
 np.set_printoptions(suppress=True, precision=4)
 

@@ -130,8 +130,6 @@ We provide the demonstration data in the **data** folder with 100 trajectories. 
 
 The code for analysis is included in **train.py** for **FetchReach-v1** environment.
 
-![plot-FetchReach-v1](./plot-FetchReach-v1.jpg)
-
 # Authors
 
 - Chun-Yu Chai: cychai.cs06g@nctu.edu.tw

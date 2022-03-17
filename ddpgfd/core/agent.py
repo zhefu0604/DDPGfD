@@ -2,9 +2,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import logging
-from model import ActorNet
-from model import CriticNet
-from replay_memory import PrioritizedReplayBuffer
+from ddpgfd.core.model import ActorNet
+from ddpgfd.core.model import CriticNet
+from ddpgfd.core.replay_memory import PrioritizedReplayBuffer
 
 # constant signifying that data was collected from a demonstration
 DATA_DEMO = 0
