@@ -16,7 +16,6 @@ train_config:
   # Pretrain Setting
   pretrain_demo: false
   pretrain_step: 10000
-  pretrain_save_step: 2000
 
 agent_config:
   state_dim: 15

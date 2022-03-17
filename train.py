@@ -11,47 +11,17 @@ import gym
 import pickle
 import csv
 import trajectory.config as config
-from training_utils import TrainingProgress, time_since, load_conf
-from agent import DDPGfDAgent, DATA_RUNTIME, DATA_DEMO
-from logger import logger_setup
-from os.path import join as opj
 from gym.envs.registration import register
 from collections import deque
+from agent import DDPGfDAgent
+from agent import DATA_RUNTIME
+from agent import DATA_DEMO
+from logger import logger_setup
+from training_utils import TrainingProgress
+from training_utils import OrnsteinUhlenbeckActionNoise
+from training_utils import load_conf
 
 np.set_printoptions(suppress=True, precision=4)
-
-# Used loggers
-DEBUG_LLV = 5  # for masked
-loggers = ['RLTrainer', 'DDPGfD', 'TP']
-# logging.addLevelName(DEBUG_LLV, 'DEBUGLLV')  # Lower level debugging info
-logging_level = logging.DEBUG  # logging.DEBUG
-
-
-class OrnsteinUhlenbeckActionNoise:
-
-    def __init__(self, mu, sigma, theta=.15, dt=1e-2, x0=None):
-        self.theta = theta
-        self.mu = mu
-        self.sigma = sigma
-        self.dt = dt
-        self.x0 = x0
-        self.x_prev = None
-        self.reset()
-
-    def __call__(self):
-        x = self.x_prev + \
-            self.theta * (self.mu - self.x_prev) * self.dt + \
-            self.sigma * np.sqrt(self.dt) * \
-            np.random.normal(size=self.mu.shape)
-        self.x_prev = x
-        return x
-
-    def reset(self):
-        self.x_prev = self.x0 or np.zeros_like(self.mu)
-
-    def __repr__(self):
-        return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(
-            self.mu, self.sigma)
 
 
 class RLTrainer:
@@ -80,7 +50,8 @@ class RLTrainer:
 
         logger_setup(
             os.path.join(self.tp.result_path, self.conf.exp_name + '-log.txt'),
-            loggers, logging_level)
+            loggers=['RLTrainer', 'DDPGfD', 'TP'],
+            level=logging.DEBUG)
         self.logger = logging.getLogger('RLTrainer')
 
         self.device = torch.device(
@@ -318,7 +289,7 @@ class RLTrainer:
             filenames = [
                 x for x in os.listdir(dconf.demo_dir) if x.endswith(".pkl")]
             for ix, f_idx in enumerate(filenames):
-                fname = opj(dconf.demo_dir, f_idx)
+                fname = os.path.join(dconf.demo_dir, f_idx)
                 with open(fname, 'rb') as f:
                     data = pickle.load(f)
                 for i in range(len(data)):
@@ -442,50 +413,24 @@ class RLTrainer:
         self.agent.train()
         start_time = time.time()
         self.logger.info('Run Pretrain')
-        for step in np.arange(self.conf.pretrain_save_step,
-                              self.conf.pretrain_step + 1,
-                              self.conf.pretrain_save_step):
-            losses_critic, losses_actor, demo_n, batch_sz = self.update_agent(
-                self.conf.pretrain_save_step)
+        self.episode = 'pre_{}'.format(self.conf.pretrain_step)
 
-            self.logger.info(
-                '{}-Pretrain Step {}/{}, '
-                '(Mean): actor_loss={:.8f}, '
-                'critic_loss={:.8f}, '
-                'batch_sz={}, '
-                'Demo_ratio={:.8f}'.format(
-                    time_since(start_time),
-                    step,
-                    self.conf.pretrain_step,
-                    losses_actor / batch_sz,
-                    losses_critic / batch_sz, batch_sz,
-                    demo_n / batch_sz)
-            )
+        # Perform training on demonstration data.
+        losses_critic, losses_actor, demo_n, batch_sz = self.update_agent(
+            self.conf.pretrain_step)
 
-            self.tp.record_step(
-                epoch=step,
-                prefix='pre_train',
-                new_dict={
-                    'actor_loss_mean': losses_actor / batch_sz,
-                    'critic_loss_mean': losses_critic / batch_sz,
-                    'batch_sz': batch_sz,
-                    'Demo_ratio': demo_n / batch_sz,
-                 },
-                display=False,
-            )
+        # Log training performance.
+        self._log_training(
+            start_time=start_time,
+            eps_actor_loss=losses_actor,
+            eps_critic_loss=losses_critic,
+            eps_batch_sz=batch_sz,
+            eps_demo_n=demo_n,
+            action_mean=None,  # no actions sampled
+            action_std=None,  # no actions sampled
+        )
 
-            self.episode = 'pre_{}'.format(step)
-            self.summary()
-
-            self.tp.plot_data(
-                prefix='pre_train',
-                ep_start=self.conf.pretrain_save_step,
-                ep_end=step,
-                file_name='result-pretrain-{}.png'.format(self.episode),
-                title=self.conf.exp_name+str(self.conf.exp_idx)+'-Pretrain',
-                grid=False,
-                ep_step=self.conf.pretrain_save_step,
-            )
+        self.summary()
 
         self.episode = 1  # Restore
 
@@ -496,7 +441,6 @@ class RLTrainer:
         start_time = time.time()
         while self.episode <= self.conf.n_episode:  # self.iter start from 1
             # Episodic statistics
-            eps_since = time.time()
             eps_reward = 0
             eps_length = 0
             eps_actor_loss = 0
@@ -574,22 +518,6 @@ class RLTrainer:
             self.agent.update_target(self.agent.actor_b, self.agent.actor_t)
             self.agent.update_target(self.agent.critic_b, self.agent.critic_t)
 
-            # TODO
-            # self.tp.record_step(
-            #     epoch=self.episode,
-            #     prefix='episode',
-            #     new_dict={
-            #         'total_reward': eps_reward,
-            #         'length': eps_length,
-            #         'avg_reward': eps_reward / eps_length,
-            #         'elapsed_time': time_since(eps_since, return_seconds=True),
-            #         'actor_loss_mean': eps_actor_loss / eps_batch_sz,
-            #         'critic_loss_mean': eps_critic_loss / eps_batch_sz,
-            #         'eps_length': eps_length,
-            #         'Demo_ratio': eps_demo_n / eps_batch_sz
-            #     },
-            #     display=False)
-
             if self.episode % self.conf.save_every == 0:
                 # Log training performance.
                 self._log_training(
@@ -652,7 +580,7 @@ class RLTrainer:
 
         }
 
-        # Save combined_stats in a csv file.
+        # Save combined_stats in a csv file.  TODO
         # if self._file_path is not None:
         #     exists = os.path.exists(self._file_path)
         #     with open(self._file_path, 'a') as f:

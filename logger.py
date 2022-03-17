@@ -99,10 +99,7 @@ def logger_setup(log_file, loggers, level):
         '[%(asctime)s] %(name)-9s:%(levelname)-8s: %(message)s',
         datefmt="%m-%d %H:%M:%S")
     console_handler.setFormatter(formatter)
-    # console_handler.setLevel(level)
-
     file_handler.setFormatter(formatter)
-    # file_handler.setLevel(level)
 
     for name in loggers:
         if isinstance(name, str):
@@ -115,15 +112,3 @@ def logger_setup(log_file, loggers, level):
             name.setLevel(level)
     logger_is_setup = True
     return console_handler, file_handler, level
-
-
-def logger_setup_extend(names, console_handler, file_handler, level):
-    for name in names:
-        if isinstance(name, str):
-            logging.getLogger(name).addHandler(console_handler)
-            logging.getLogger(name).addHandler(file_handler)
-            logging.getLogger(name).setLevel(level)
-        elif isinstance(name, logging.Logger):
-            name.addHandler(console_handler)
-            name.addHandler(file_handler)
-            name.setLevel(level)

@@ -172,7 +172,7 @@ class ReplayBuffer(object):
         self._rewards = np.empty(size, dtype=object)
 
     def set_protect_size(self, protect_size):
-        # For keeping demonstration data,keep first protect_size items
+        # For keeping demonstration data, keep first protect_size items
         self.protect_idx = protect_size-1
 
     def __len__(self):
@@ -187,34 +187,13 @@ class ReplayBuffer(object):
             self._next_idx = self.protect_idx + 1
         self.cur_sz = min(self.cur_sz + 1, self._maxsize)
 
-    @staticmethod
-    def reject_outliers(data, max_deviations=2.):
-        # 2. Determine mean and standard deviation
-        mean = np.mean(data)
-        std_dev = np.std(data)
-
-        # 3. Normalize array around 0
-        zero_based = abs(data - mean)
-
-        # 4. Define maximum number of standard deviations
-        # max_deviations = 2
-
-        # 5. Access only non-outliers using Boolean Indexing
-        return data[zero_based < max_deviations * std_dev]
-
     def _encode_sample(self, idxes):
-        # reward statistics
-        # data = self.reject_outliers(self._rewards[:self.cur_sz])
-        # r_mean = np.mean(data)
-        # r_std = np.std(data)
-
         s_, a_, r_, s2_, gamma_, flag_ = [], [], [], [], [], []
         exps = self._storage[idxes]
         for exp in exps:
             s, a, r, s2, gamma, flag = exp
             s_.append(s.clone())
             a_.append(a.clone())
-            # r_.append(torch.clip((r.clone() - r_mean) / r_std, min=-1, max=1))
             r_.append(r.clone())
             s2_.append(s2.clone())
             gamma_.append(gamma.clone())
