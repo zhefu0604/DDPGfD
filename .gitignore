@@ -7,6 +7,6 @@ debug
 *.idea/
 *.ipynb_checkpoints/
 *data/
-*demo/
+ddpgfd/scripts/demo/
 *result/
 *.DS_Store
