@@ -31,5 +31,5 @@ agent_config:
 
 demo_config:
   load_demo_data: true
-  demo_dir: './demo/random/accel=1/no-lc'
+  demo_dir: './demo/random/2-avs/accel=0.5/no-lc'
   random: true

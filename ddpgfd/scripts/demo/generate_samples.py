@@ -78,21 +78,25 @@ def reward_fn(headway,
         the reward
     """
     scale = 1.
-    reward = 0
+    low = 1.5
+    high = 3.5
+    reward = 0.
 
-    h = headway[t]
+    th = min((headway[t] / max(speed[t], 1e-10)), 10)
 
-    if h < 4:
-        reward -= scale  # * 0.1 * huber_loss(h - 4, delta=0.25)
-    elif h > 100:
-        reward -= scale  # * 0.1 * huber_loss(h - 100, delta=0.25)
+    if th < low:
+        reward -= scale * huber_loss(th - low, delta=0.25)
+    elif th > high:
+        reward -= scale * huber_loss(th - high, delta=0.25)
 
     reward -= scale * (
-        max(instant_energy_consumption[t], 0) + 0.1 * accel[t] ** 2)
+        np.mean(np.clip(
+            instant_energy_consumption[max(t-50, 0): t+1],
+            a_min=0, a_max=np.inf))
+        # + 0.1 * accel[t] ** 2)
+    )
 
-    reward += scale * 1.1792311343986146
-
-    return reward
+    return 0.5 * reward + 1
 
 
 def obs(headway,
@@ -131,7 +135,7 @@ def obs(headway,
         [0.] * n_missed +
         list(speed[min_t: max_t] / SPEED_SCALE - 0.5) +
         [0.] * n_missed +
-        list(leader_speed[min_t: max_t] / SPEED_SCALE - 0.5) +
+        list((leader_speed[min_t: max_t] - speed[min_t: max_t]) / SPEED_SCALE) +
         [0.] * n_missed +
         list(np.clip(headway[min_t: max_t], a_min=0, a_max=100) / HEADWAY_SCALE - 0.5))
 
@@ -164,7 +168,7 @@ def action(headway,
     array_like
         the observation
     """
-    return np.array([accel[t]])
+    return np.array([2. * accel[t]])
 
 
 def main(args):
@@ -184,7 +188,7 @@ def main(args):
         df_i = df_i.sort_values("time")
 
         headway = np.array(df_i.headway)
-        accel = np.array(df_i.accel)
+        accel = np.array(df_i.target_accel_no_noise_no_failsafe)
         speed = np.array(df_i.speed)
         leader_speed = np.array(df_i.leader_speed)
         instant_energy_consumption = np.array(df_i.instant_energy_consumption)

@@ -243,10 +243,14 @@ class RLTrainer:
                 with torch.no_grad():
                     # Compute noisy actions by the policy.
                     action = [
-                        self.agent.actor_b(s_tensor[i].to(
-                            self.device)[None])[0] +
-                        torch.from_numpy(self.agent.action_noise()).float()
-                        for i in range(n_agents)]
+                        torch.clip(
+                            self.agent.actor_b(s_tensor[i].to(
+                                self.device)[None])[0] +
+                            torch.from_numpy(
+                                self.agent.action_noise()).float(),
+                            min=-0.99,
+                            max=0.99,
+                        ) for i in range(n_agents)]
                     action_lst.extend([act.numpy() for act in action])
 
                     # Run environment step.
