@@ -188,16 +188,24 @@ class RLTrainer:
         self.episode = 'pre_{}'.format(self.conf.pretrain_step)
 
         # Perform training on demonstration data.
-        loss_critic, loss_actor, demo_n, batch_sz = self.agent.update_agent(
-            self.conf.pretrain_step)
+        loss_critic = []
+        loss_actor = []
+        demo_n = []
+        batch_sz = []
+        for t in range(self.conf.pretrain_step):
+            q, a, d, b = self.agent.update_agent(t)
+            loss_critic.append(q)
+            loss_actor.append(a)
+            demo_n.append(d)
+            batch_sz.append(b)
 
         # Log training performance.
         self._log_training(
             start_time=start_time,
-            eps_actor_loss=loss_actor,
-            eps_critic_loss=loss_critic,
-            eps_batch_sz=batch_sz,
-            eps_demo_n=demo_n,
+            eps_actor_loss=np.mean(loss_actor),
+            eps_critic_loss=np.mean(loss_critic),
+            eps_batch_sz=np.mean(batch_sz),
+            eps_demo_n=np.mean(demo_n),
             action_mean=None,  # no actions sampled
             action_std=None,  # no actions sampled
         )
@@ -210,15 +218,15 @@ class RLTrainer:
         """Perform end-to-end training procedure."""
         self.agent.train()
 
+        epoch_actor_loss = []
+        epoch_critic_loss = []
+        epoch_batch_sz = []
+        epoch_demo_n = []
         start_time = time.time()
         while self.episode <= self.conf.n_episode:  # self.iter start from 1
             # Episodic statistics
             eps_reward = 0
             eps_length = 0
-            eps_actor_loss = 0
-            eps_critic_loss = 0
-            eps_batch_sz = 0
-            eps_demo_n = 0
 
             # Reset the environment.
             s0 = self.env.reset()
@@ -259,45 +267,45 @@ class RLTrainer:
                     s_tensor = s2_tensor
 
                 # Record episodic statistics.
+                self.steps += 1
                 eps_reward += np.mean(r)
                 eps_length += 1
+
+                # Perform policy update.
+                if self.steps % self.conf.update_step == 0:
+                    q, a, d, b = self.agent.update_agent(
+                        self.steps // self.conf.update_step)
+
+                    epoch_actor_loss.append(a)
+                    epoch_critic_loss.append(q)
+                    epoch_batch_sz.append(b)
+                    epoch_demo_n.append(d)
 
             # More bookkeeping.
             self.epoch_episode_rewards.append(eps_reward)
             self.episode_rew_history.append(eps_reward)
             self.epoch_episode_steps.append(eps_length)
-            self.steps += eps_length
             self.epoch_episodes += 1
-
-            # Perform policy update.
-            loss_critic, loss_actor, demo_n, batch = self.agent.update_agent(
-                self.conf.update_step)
-
-            eps_actor_loss += loss_actor
-            eps_critic_loss += loss_critic
-            eps_batch_sz += batch
-            eps_demo_n += demo_n
-
-            # Update target.
-            self.agent.update_target(self.agent.actor_b, self.agent.actor_t)
-            self.agent.update_target(self.agent.critic_b, self.agent.critic_t)
 
             if self.episode % self.conf.save_every == 0:
                 # Log training performance.
                 self._log_training(
                     start_time=start_time,
-                    eps_actor_loss=eps_actor_loss,
-                    eps_critic_loss=eps_critic_loss,
-                    eps_batch_sz=eps_batch_sz,
-                    eps_demo_n=eps_demo_n,
+                    eps_actor_loss=np.mean(epoch_actor_loss),
+                    eps_critic_loss=np.mean(epoch_critic_loss),
+                    eps_batch_sz=np.mean(epoch_batch_sz),
+                    eps_demo_n=np.mean(epoch_demo_n),
                     action_mean=np.mean(action_lst),
                     action_std=np.std(action_lst),
                 )
 
-                # TODO
                 self.summary()
 
                 # Reset epoch statistics.
+                epoch_actor_loss.clear()
+                epoch_critic_loss.clear()
+                epoch_batch_sz.clear()
+                epoch_demo_n.clear()
                 self.epoch_episodes = 0
                 self.epoch_episode_rewards.clear()
                 self.epoch_episode_steps.clear()

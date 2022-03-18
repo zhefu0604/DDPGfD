@@ -3,13 +3,13 @@ train_config:
   env_port: 19999
   seed: 1000
   exp_name: 's0'
-  lr_rate: 0.001
-  w_decay: 0.00001
+  lr_rate: 0.0003
+  w_decay: 0
   restore: false # Restore for training or evaluation
   tps: 1800 # Restored episode for evaluation
   n_episode: 1000 # Total Training Episode
   batch_size: 1024 # Sample from PER
-  update_step: 100 # Number of policy updates per env rollout
+  update_step: 10 # Number of environment steps per policy update
   mse_loss: true # for Q loss
   save_every: 1 # save and log training
 
@@ -31,5 +31,5 @@ agent_config:
 
 demo_config:
   load_demo_data: true
-  demo_dir: './demo/random'
+  demo_dir: './demo/random/accel=1/no-lc'
   random: true

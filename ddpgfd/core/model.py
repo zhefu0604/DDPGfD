@@ -44,10 +44,10 @@ class ActorNet(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(in_dim, HIDDEN_LAYERS, bias=False),
             nn.Dropout(0.5),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS, bias=False),
             nn.Dropout(0.5),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(HIDDEN_LAYERS, out_dim),
             nn.Tanh(),
         )  # +-1 output
@@ -108,10 +108,10 @@ class CriticNet(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(in_dim, HIDDEN_LAYERS, bias=False),
             nn.Dropout(0.5),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS, bias=False),
             nn.Dropout(0.5),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(HIDDEN_LAYERS, 1),
         )
 

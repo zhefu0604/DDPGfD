@@ -140,8 +140,6 @@ class DDPGfDAgent(nn.Module):
                 self.agent_conf.tau * src_param.data
                 + (1.0 - self.agent_conf.tau) * tgt_param.data)
 
-        self.logger.debug('(Soft)Update target network')
-
     def update_agent(self, update_step):
         """Sample experience and update.
 
@@ -166,63 +164,66 @@ class DDPGfDAgent(nn.Module):
         demo_cnt = []
         batch_sz = 0
         if self.memory.ready():
-            for _ in range(update_step):
-                # Sample a batch of data.
-                (batch_s, batch_a, batch_r, batch_s2, batch_gamma,
-                 batch_flags), weights, idxes = self.memory.sample(
-                    self.conf.train_config.batch_size)
+            # Sample a batch of data.
+            (batch_s, batch_a, batch_r, batch_s2, batch_gamma,
+             batch_flags), weights, idxes = self.memory.sample(
+                self.conf.train_config.batch_size)
 
-                # Convert to pytorch compatible object.
-                batch_s = batch_s.to(self.device)
-                batch_a = batch_a.to(self.device)
-                batch_r = batch_r.to(self.device)
-                batch_s2 = batch_s2.to(self.device)
-                batch_gamma = batch_gamma.to(self.device)
-                weights = torch.from_numpy(weights.reshape(-1, 1)).float().to(
-                    self.device)
-                batch_sz += batch_s.shape[0]
+            # Convert to pytorch compatible object.
+            batch_s = batch_s.to(self.device)
+            batch_a = batch_a.to(self.device)
+            batch_r = batch_r.to(self.device)
+            batch_s2 = batch_s2.to(self.device)
+            batch_gamma = batch_gamma.to(self.device)
+            weights = torch.from_numpy(weights.reshape(-1, 1)).float().to(
+                self.device)
+            batch_sz += batch_s.shape[0]
 
-                # Compute the target for the critic.
-                with torch.no_grad():
-                    action_tgt = self.actor_t(batch_s2)
-                    y_tgt = batch_r + batch_gamma * self.critic_t(
-                        torch.cat((batch_s2, action_tgt), dim=1))
+            # Compute the target for the critic.
+            with torch.no_grad():
+                action_tgt = self.actor_t(batch_s2)
+                y_tgt = batch_r + batch_gamma * self.critic_t(
+                    torch.cat((batch_s2, action_tgt), dim=1))
 
-                # Critic loss
-                self.zero_grad()
-                self.optimizer_critic.zero_grad()
-                q_b = self.critic_b(torch.cat((batch_s, batch_a), dim=1))
-                loss_critic = (self.q_criterion(q_b, y_tgt) * weights).mean()
+            # Critic loss
+            self.zero_grad()
+            self.optimizer_critic.zero_grad()
+            q_b = self.critic_b(torch.cat((batch_s, batch_a), dim=1))
+            loss_critic = (self.q_criterion(q_b, y_tgt) * weights).mean()
 
-                # Record Demo count
-                d_flags = torch.from_numpy(batch_flags)
-                demo_select = d_flags == DATA_DEMO
-                n_act = demo_select.sum().item()
-                demo_cnt.append(n_act)
-                loss_critic.backward()
-                self.optimizer_critic.step()
+            # Record Demo count
+            d_flags = torch.from_numpy(batch_flags)
+            demo_select = d_flags == DATA_DEMO
+            n_act = demo_select.sum().item()
+            demo_cnt.append(n_act)
+            loss_critic.backward()
+            self.optimizer_critic.step()
 
-                # Actor loss
-                self.optimizer_actor.zero_grad()
-                action_b = self.actor_b(batch_s)
-                q_act = self.critic_b(torch.cat((batch_s, action_b), dim=1))
-                loss_actor = -torch.mean(q_act)
-                loss_actor.backward()
-                self.optimizer_actor.step()
+            # Actor loss
+            self.optimizer_actor.zero_grad()
+            action_b = self.actor_b(batch_s)
+            q_act = self.critic_b(torch.cat((batch_s, action_b), dim=1))
+            loss_actor = -torch.mean(q_act)
+            loss_actor.backward()
+            self.optimizer_actor.step()
 
-                if not self.agent_conf.no_per:
-                    # Update priorities in the replay buffer.
-                    priority = ((q_b.detach() - y_tgt).pow(2) +
-                                q_act.detach().pow(2)).numpy().ravel() \
-                        + self.agent_conf.const_min_priority
-                    priority[batch_flags == DATA_DEMO] += \
-                        self.agent_conf.const_demo_priority
+            if not self.agent_conf.no_per:
+                # Update priorities in the replay buffer.
+                priority = ((q_b.detach() - y_tgt).pow(2) +
+                            q_act.detach().pow(2)).numpy().ravel() \
+                    + self.agent_conf.const_min_priority
+                priority[batch_flags == DATA_DEMO] += \
+                    self.agent_conf.const_demo_priority
 
-                    self.memory.update_priorities(idxes, priority)
+                self.memory.update_priorities(idxes, priority)
 
-                # Add the losses for this training step.
-                losses_actor.append(loss_actor.item())
-                losses_critic.append(loss_critic.item())
+            # Update target.
+            self.update_target(self.actor_b, self.actor_t)
+            self.update_target(self.critic_b, self.critic_t)
+
+            # Add the losses for this training step.
+            losses_actor.append(loss_actor.item())
+            losses_critic.append(loss_critic.item())
 
         demo_n = max(sum(demo_cnt), 1e-10)
 
