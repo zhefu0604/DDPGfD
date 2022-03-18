@@ -1,3 +1,4 @@
+"""TODO."""
 import numpy as np
 import torch
 import operator
@@ -82,6 +83,15 @@ class SegmentTree(object):
         return self._reduce_helper(start, end, 1, 0, self._capacity - 1)
 
     def __setitem__(self, idx, val):
+        """TODO.
+
+        Parameters
+        ----------
+        idx : TODO
+            TODO
+        val : TODO
+            TODO
+        """
         # index of the leaf
         idx += self._capacity
         self._value[idx] = val
@@ -94,12 +104,28 @@ class SegmentTree(object):
             idx //= 2
 
     def __getitem__(self, idx):
+        """TODO.
+
+        Parameters
+        ----------
+        idx : TODO
+            TODO
+        """
         assert 0 <= idx < self._capacity
         return self._value[self._capacity + idx]
 
 
 class SumSegmentTree(SegmentTree):
+    """TODO."""
+
     def __init__(self, capacity):
+        """TODO.
+
+        Parameters
+        ----------
+        capacity : TODO
+            TODO
+        """
         super(SumSegmentTree, self).__init__(
             capacity=capacity,
             operation=operator.add,
@@ -107,7 +133,7 @@ class SumSegmentTree(SegmentTree):
         )
 
     def sum(self, start=0, end=None):
-        """Returns arr[start] + ... + arr[end]"""
+        """Return arr[start] + ... + arr[end]."""
         return super(SumSegmentTree, self).reduce(start, end)
 
     def find_prefixsum_idx(self, prefixsum):
@@ -139,8 +165,16 @@ class SumSegmentTree(SegmentTree):
 
 
 class MinSegmentTree(SegmentTree):
+    """TODO."""
 
     def __init__(self, capacity):
+        """TODO.
+
+        Parameters
+        ----------
+        capacity : TODO
+            TODO
+        """
         super(MinSegmentTree, self).__init__(
             capacity=capacity,
             operation=min,
@@ -172,13 +206,16 @@ class ReplayBuffer(object):
         self._rewards = np.empty(size, dtype=object)
 
     def set_protect_size(self, protect_size):
+        """TODO."""
         # For keeping demonstration data, keep first protect_size items
         self.protect_idx = protect_size-1
 
     def __len__(self):
+        """TODO."""
         return self.cur_sz
 
     def add(self, experience):
+        """TODO."""
         # Experience: tuple of (s,a,r,s2) with CPU tensor type
         self._storage[self._next_idx] = experience
         self._rewards[self._next_idx] = experience[2].item()
@@ -188,6 +225,7 @@ class ReplayBuffer(object):
         self.cur_sz = min(self.cur_sz + 1, self._maxsize)
 
     def _encode_sample(self, idxes):
+        """TODO."""
         s_, a_, r_, s2_, gamma_, flag_ = [], [], [], [], [], []
         exps = self._storage[idxes]
         for exp in exps:
@@ -221,8 +259,8 @@ class ReplayBuffer(object):
         next_obs_batch : np.array
             next set of observations seen after executing act_batch
         done_mask : np.array
-            done_mask[i] = 1 if executing act_batch[i] resulted in
-            the end of an episode and 0 otherwise.
+            done_mask[i] = 1 if executing act_batch[i] resulted in the end of
+            an episode and 0 otherwise.
         gammas : np.array
             product of gammas for N-step returns
         """
@@ -263,18 +301,22 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         self.beta = beta_init
 
     def ready(self):
+        """TODO."""
         return self.cur_sz > 1
 
     def update_beta(self):
+        """TODO."""
         self.beta = min(1., self.beta + self.beta_inc)
 
     def add(self, experience):
+        """TODO."""
         idx = self._next_idx
         super().add(experience)
         self._it_sum[idx] = self._max_priority ** self._alpha
         self._it_min[idx] = self._max_priority ** self._alpha
 
     def _sample_proportional(self, batch_size):
+        """TODO."""
         res = []
         p_total = self._it_sum.sum(0, self.cur_sz - 1)
         every_range_len = p_total / batch_size

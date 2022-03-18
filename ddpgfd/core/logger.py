@@ -1,3 +1,4 @@
+"""TODO."""
 import logging
 import os
 import sys
@@ -9,6 +10,7 @@ file_handler = None
 
 
 def fileno(file_or_fd):
+    """TODO."""
     fd = getattr(file_or_fd, 'fileno', lambda: file_or_fd)()
     if not isinstance(fd, int):
         raise ValueError("Expected a file (`.fileno()`) or a file descriptor")
@@ -87,6 +89,26 @@ class ColorStreamHandler(logging.StreamHandler):
 
 
 def logger_setup(log_file, loggers, level):
+    """TODO.
+
+    Parameters
+    ----------
+    log_file : TODO
+        TODO
+    loggers : TODO
+        TODO
+    level : TODO
+        TODO
+
+    Returns
+    -------
+    TODO
+        TODO
+    TODO
+        TODO
+    TODO
+        TODO
+    """
     global logger_is_setup, console_handler, file_handler
     if logger_is_setup:
         print('Logger Already Setup, Check your code')

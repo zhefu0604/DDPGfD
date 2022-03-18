@@ -1,10 +1,11 @@
+"""TODO."""
 import os
 import sys
 import time
+import csv
 import argparse
 import random
 import torch
-import torch.nn as nn
 import numpy as np
 import logging
 import gym
@@ -17,7 +18,6 @@ from ddpgfd.core.agent import DATA_RUNTIME
 from ddpgfd.core.agent import DATA_DEMO
 from ddpgfd.core.logger import logger_setup
 from ddpgfd.core.training_utils import TrainingProgress
-from ddpgfd.core.training_utils import OrnsteinUhlenbeckActionNoise
 from ddpgfd.core.training_utils import load_conf
 
 np.set_printoptions(suppress=True, precision=4)
@@ -38,14 +38,11 @@ class RLTrainer:
         self.full_conf = load_conf(conf_path)
         self.conf = self.full_conf.train_config
 
-        progress_dir = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), 'progress')
         result_dir = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), 'result')
 
         # Store in xxxx_dir/exp_name+exp_idx/...
-        self.tp = TrainingProgress(
-            progress_dir, result_dir, self.conf.exp_name)
+        self.tp = TrainingProgress(result_dir, self.conf.exp_name)
 
         logger_setup(
             os.path.join(self.tp.result_path, self.conf.exp_name + '-log.txt'),
@@ -75,7 +72,7 @@ class RLTrainer:
 
         self.logger.info('Environment Loaded')
 
-        self.agent = DDPGfDAgent(self.full_conf.agent_config, self.device)
+        self.agent = DDPGfDAgent(self.full_conf, self.device)
         self.agent.to(self.device)
 
         if self.conf.restore:
@@ -83,20 +80,8 @@ class RLTrainer:
         else:
             self.episode = 1
 
-        self.optimizer_actor = None
-        self.optimizer_critic = None
-        self.set_optimizer()
-
-        # Loss Function setting
-        reduction = 'none'
-        if self.conf.mse_loss:
-            self.q_criterion = nn.MSELoss(reduction=reduction)
-        else:
-            self.q_criterion = nn.SmoothL1Loss(reduction=reduction)
+        # Initialize replay buffer with demonstrations.
         self.demo2memory()
-        self.action_noise = OrnsteinUhlenbeckActionNoise(
-            np.zeros(self.full_conf.agent_config.action_dim),
-            self.full_conf.agent_config.action_noise_std)
 
         # init
         self.steps = 0
@@ -267,20 +252,6 @@ class RLTrainer:
         self.logger.info('Progress Saved, current episode={}'.format(
             self.episode))
 
-    def set_optimizer(self):
-        """Create the optimizer objects."""
-        # Create actor optimizer.
-        self.optimizer_actor = torch.optim.Adam(
-            self.agent.actor_b.parameters(),
-            lr=self.conf.lr_rate,
-            weight_decay=self.conf.w_decay)
-
-        # Create critic optimizer.
-        self.optimizer_critic = torch.optim.Adam(
-            self.agent.critic_b.parameters(),
-            lr=self.conf.lr_rate,
-            weight_decay=self.conf.w_decay)
-
     def demo2memory(self):
         """Import demonstration from pkl files to the replay buffer."""
         dconf = self.full_conf.demo_config
@@ -306,7 +277,7 @@ class RLTrainer:
                         action,
                         torch.tensor([r]).float(),
                         s2_tensor,
-                        torch.tensor([self.agent.conf.gamma]),
+                        torch.tensor([self.agent.agent_conf.gamma]),
                         DATA_DEMO))
 
                 self.logger.info(
@@ -319,93 +290,6 @@ class RLTrainer:
         else:
             self.logger.info('No Demo Trajectory Loaded')
 
-    def update_agent(self, update_step):
-        """Sample experience and update.
-
-        Parameters
-        ----------
-        update_step : int
-            number of policy updates to perform
-
-        Returns
-        -------
-        float
-            critic loss
-        float
-            actor loss
-        int
-            the number of demonstration in the training batches
-        int
-            the total number of samples in the training batches
-        """
-        losses_critic = []
-        losses_actor = []
-        demo_cnt = []
-        batch_sz = 0
-        if self.agent.memory.ready():
-            for _ in range(update_step):
-                # Sample a batch of data.
-                (batch_s, batch_a, batch_r, batch_s2, batch_gamma,
-                 batch_flags), weights, idxes = self.agent.memory.sample(
-                    self.conf.batch_size)
-
-                # Convert to pytorch compatible object.
-                batch_s = batch_s.to(self.device)
-                batch_a = batch_a.to(self.device)
-                batch_r = batch_r.to(self.device)
-                batch_s2 = batch_s2.to(self.device)
-                batch_gamma = batch_gamma.to(self.device)
-                weights = torch.from_numpy(weights.reshape(-1, 1)).float().to(
-                    self.device)
-                batch_sz += batch_s.shape[0]
-
-                # Compute the target for the critic.
-                with torch.no_grad():
-                    action_tgt = self.agent.actor_t(batch_s2)
-                    y_tgt = batch_r + batch_gamma * self.agent.critic_t(
-                        torch.cat((batch_s2, action_tgt), dim=1))
-
-                # Critic loss
-                self.agent.zero_grad()
-                self.optimizer_critic.zero_grad()
-                q_b = self.agent.critic_b(torch.cat((batch_s, batch_a), dim=1))
-                loss_critic = (self.q_criterion(q_b, y_tgt) * weights).mean()
-
-                # Record Demo count
-                d_flags = torch.from_numpy(batch_flags)
-                demo_select = d_flags == DATA_DEMO
-                n_act = demo_select.sum().item()
-                demo_cnt.append(n_act)
-                loss_critic.backward()
-                self.optimizer_critic.step()
-
-                # Actor loss
-                self.optimizer_actor.zero_grad()
-                action_b = self.agent.actor_b(batch_s)
-                q_act = self.agent.critic_b(
-                    torch.cat((batch_s, action_b), dim=1))
-                loss_actor = -torch.mean(q_act)
-                loss_actor.backward()
-                self.optimizer_actor.step()
-
-                if not self.agent.conf.no_per:
-                    # Update priorities in the replay buffer.
-                    priority = ((q_b.detach() - y_tgt).pow(2) +
-                                q_act.detach().pow(2)).numpy().ravel() \
-                        + self.agent.conf.const_min_priority
-                    priority[batch_flags == DATA_DEMO] += \
-                        self.agent.conf.const_demo_priority
-
-                    self.agent.memory.update_priorities(idxes, priority)
-
-                # Add the losses for this training step.
-                losses_actor.append(loss_actor.item())
-                losses_critic.append(loss_critic.item())
-
-        demo_n = max(sum(demo_cnt), 1e-10)
-
-        return np.sum(losses_critic), np.sum(losses_actor), demo_n, batch_sz
-
     def pretrain(self):
         """Perform training on initial demonstration data."""
         assert self.full_conf.demo_config.load_demo_data
@@ -415,14 +299,14 @@ class RLTrainer:
         self.episode = 'pre_{}'.format(self.conf.pretrain_step)
 
         # Perform training on demonstration data.
-        losses_critic, losses_actor, demo_n, batch_sz = self.update_agent(
+        loss_critic, loss_actor, demo_n, batch_sz = self.agent.update_agent(
             self.conf.pretrain_step)
 
         # Log training performance.
         self._log_training(
             start_time=start_time,
-            eps_actor_loss=losses_actor,
-            eps_critic_loss=losses_critic,
+            eps_actor_loss=loss_actor,
+            eps_critic_loss=loss_critic,
             eps_batch_sz=batch_sz,
             eps_demo_n=demo_n,
             action_mean=None,  # no actions sampled
@@ -460,7 +344,7 @@ class RLTrainer:
             n_agents = len(s0)
 
             # Reset action noise.
-            self.action_noise.reset()
+            self.agent.action_noise.reset()
 
             done = False
             s_tensor = [self.agent.obs2tensor(s0[i]) for i in range(n_agents)]
@@ -472,7 +356,7 @@ class RLTrainer:
                     action = [
                         self.agent.actor_b(s_tensor[i].to(
                             self.device)[None])[0] +
-                        torch.from_numpy(self.action_noise()).float()
+                        torch.from_numpy(self.agent.action_noise()).float()
                         for i in range(n_agents)]
                     action_lst.extend([act.numpy() for act in action])
 
@@ -488,7 +372,7 @@ class RLTrainer:
                             action[i],
                             torch.tensor([r[i]]).float(),
                             s2_tensor[i],
-                            torch.tensor([self.agent.conf.gamma]),
+                            torch.tensor([self.agent.agent_conf.gamma]),
                             DATA_RUNTIME))
 
                     s_tensor = s2_tensor
@@ -505,12 +389,12 @@ class RLTrainer:
             self.epoch_episodes += 1
 
             # Perform policy update.
-            losses_critic, losses_actor, demo_n, batch_sz = self.update_agent(
+            loss_critic, loss_actor, demo_n, batch = self.agent.update_agent(
                 self.conf.update_step)
 
-            eps_actor_loss += losses_actor
-            eps_critic_loss += losses_critic
-            eps_batch_sz += batch_sz
+            eps_actor_loss += loss_actor
+            eps_critic_loss += loss_critic
+            eps_batch_sz += batch
             eps_demo_n += demo_n
 
             # Update target.
@@ -529,13 +413,16 @@ class RLTrainer:
                     action_std=np.std(action_lst),
                 )
 
+                # TODO
+                self.summary()
+
                 # Reset epoch statistics.
                 self.epoch_episodes = 0
                 self.epoch_episode_rewards.clear()
                 self.epoch_episode_steps.clear()
 
-                # TODO
-                self.summary()
+                # Update training epoch.
+                self.epoch += 1
 
             self.episode += 1
 
@@ -579,14 +466,14 @@ class RLTrainer:
 
         }
 
-        # Save combined_stats in a csv file.  TODO
-        # if self._file_path is not None:
-        #     exists = os.path.exists(self._file_path)
-        #     with open(self._file_path, 'a') as f:
-        #         w = csv.DictWriter(f, fieldnames=combined_stats.keys())
-        #         if not exists:
-        #             w.writeheader()
-        #         w.writerow(combined_stats)
+        # Save combined_stats in a csv file.
+        file_path = os.path.join(self.tp.result_path, "train.csv")
+        exists = os.path.exists(file_path)
+        with open(file_path, 'a') as f:
+            w = csv.DictWriter(f, fieldnames=combined_stats.keys())
+            if not exists:
+                w.writeheader()
+            w.writerow(combined_stats)
 
         # Print statistics.
         print("-" * 67)

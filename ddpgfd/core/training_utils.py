@@ -1,3 +1,4 @@
+"""TODO."""
 import numpy as np
 import errno
 import torch
@@ -32,8 +33,40 @@ def check_path(path):
 
 
 class OrnsteinUhlenbeckActionNoise:
+    """TODO.
+
+    Attributes
+    ----------
+    theta : TODO
+        TODO
+    mu : TODO
+        TODO
+    sigma : TODO
+        TODO
+    dt : TODO
+        TODO
+    x0 : TODO
+        TODO
+    x_prev : TODO
+        TODO
+    """
 
     def __init__(self, mu, sigma, theta=.15, dt=1e-2, x0=None):
+        """TODO.
+
+        Attributes
+        ----------
+        theta : TODO
+            TODO
+        mu : TODO
+            TODO
+        sigma : TODO
+            TODO
+        dt : TODO
+            TODO
+        x0 : TODO
+            TODO
+        """
         self.theta = theta
         self.mu = mu
         self.sigma = sigma
@@ -43,6 +76,7 @@ class OrnsteinUhlenbeckActionNoise:
         self.reset()
 
     def __call__(self):
+        """TODO."""
         x = self.x_prev + \
             self.theta * (self.mu - self.x_prev) * self.dt + \
             self.sigma * np.sqrt(self.dt) * \
@@ -51,14 +85,31 @@ class OrnsteinUhlenbeckActionNoise:
         return x
 
     def reset(self):
+        """TODO."""
         self.x_prev = self.x0 or np.zeros_like(self.mu)
 
     def __repr__(self):
+        """TODO."""
         return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(
             self.mu, self.sigma)
 
 
 class TrainingProgress(object):
+    """TODO.
+
+    Attributes
+    ----------
+    result_path : TODO
+        TODO
+    progress_path : TODO
+        TODO
+    meta_dict : dict
+        TODO
+    record_dict : TODO
+        TODO
+    logger : TODO
+        TODO
+    """
 
     def __init__(self,
                  result_path,
@@ -67,13 +118,30 @@ class TrainingProgress(object):
                  meta_dict=None,
                  record_dict=None,
                  restore=False):
-        """
+        """TODO.
+
         Header => Filename header,append file name behind
         Data Dict => Appendable data (loss,time,acc....)
         Meta Dict => One time data (config,weight,.....)
+
+        Parameters
+        ----------
+        result_path : TODO
+            TODO
+        folder_name : TODO
+            TODO
+        tp_step : TODO
+            TODO
+        meta_dict : TODO
+            TODO
+        record_dict : TODO
+            TODO
+        restore : TODO
+            TODO
         """
-        self.result_path = os.path.join(result_path, folder_name) + '/'
-        self.progress_path = os.path.join(result_path, folder_name) + '/'
+        self.result_path = os.path.join(result_path, folder_name) + "/"
+        self.progress_path = os.path.join(
+            result_path, folder_name, "model-params") + "/"
         check_path(self.progress_path)
         check_path(self.result_path)
 
@@ -88,24 +156,61 @@ class TrainingProgress(object):
         self.logger = logging.getLogger('TP')
 
     def save_model_weight(self, model, epoch, prefix=''):
+        """TODO.
+
+        Parameters
+        ----------
+        model : TODO
+            TODO
+        epoch : TODO
+            TODO
+        prefix : TODO
+            TODO
+        """
         name = self.progress_path + prefix + 'model-' + str(epoch) + '.tp'
         torch.save(model.state_dict(), name)
 
     def restore_model_weight(self, epoch, device, prefix=''):
+        """TODO.
+
+        Parameters
+        ----------
+        epoch : TODO
+            TODO
+        device : TODO
+            TODO
+        prefix : TODO
+            TODO
+        """
         name = self.progress_path + prefix + 'model-' + str(epoch) + '.tp'
         return torch.load(name, map_location=device)
 
     def add_meta(self, new_dict):
+        """Update the internal meta_dict with new data."""
         self.meta_dict.update(new_dict)
 
     def get_meta(self, key):
+        """Return an element from meta_dict."""
         try:
             return self.meta_dict[key]
         except KeyError:  # New key
             self.logger.error('TP Error: Cannot find meta, key={}'.format(key))
             return None
 
-    def record_step(self, epoch, prefix, new_dict, display=False):  # use this
+    def record_step(self, epoch, prefix, new_dict, display=False):
+        """TODO.
+
+        Parameters
+        ----------
+        epoch : TODO
+            TODO
+        prefix : TODO
+            TODO
+        new_dict : TODO
+            TODO
+        display : TODO
+            TODO
+        """
         # record every epoch, prefix=train/test/validation....
         key = prefix + str(epoch)
         if key in self.record_dict.keys():
@@ -122,6 +227,15 @@ class TrainingProgress(object):
             self.logger.info(key + ': ' + str_display)
 
     def save_progress(self, tp_step, override_path=None):
+        """TODO.
+
+        Parameters
+        ----------
+        tp_step : TODO
+            TODO
+        override_path : TODO
+            TODO
+        """
         name = self.progress_path + str(tp_step) + '.tpdata' \
             if override_path is None else override_path
         check_path(os.path.dirname(name))
@@ -129,16 +243,43 @@ class TrainingProgress(object):
             pickle.dump((self.meta_dict, self.record_dict), f, protocol=2)
 
     def restore_progress(self, tp_step, override_path=None):
+        """TODO.
+
+        Parameters
+        ----------
+        tp_step : TODO
+            TODO
+        override_path : TODO
+            TODO
+        """
         name = self.progress_path + str(tp_step) + '.tpdata' \
             if override_path is None else override_path
         with open(name, 'rb') as f:
             self.meta_dict, self.record_dict = pickle.load(f)
 
     def backup_file(self, src, file_name):  # Saved in result
+        """TODO.
+
+        Parameters
+        ----------
+        src : TODO
+            TODO
+        file_name : TODO
+            TODO
+        """
         self.logger.info('Backup ' + src)
         copy2(src, self.result_path + file_name)
 
     def save_conf(self, dict, prefix=''):
+        """TODO.
+
+        Parameters
+        ----------
+        dict : TODO
+            TODO
+        prefix : TODO
+            TODO
+        """
         path = self.result_path + prefix + 'conf.yaml'
         with open(path, 'w') as outfile:
             yaml.dump(dict, outfile)
