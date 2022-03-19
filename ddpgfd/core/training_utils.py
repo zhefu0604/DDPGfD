@@ -32,6 +32,35 @@ def check_path(path):
             raise
 
 
+class GaussianActionNoise(object):
+    """TODO.
+
+    Attributes
+    ----------
+    sigma : TODO
+        TODO
+    """
+
+    def __init__(self, sigma, ac_dim=1):
+        """TODO.
+
+        Attributes
+        ----------
+        sigma : TODO
+            TODO
+        """
+        self.ac_dim = ac_dim
+        self.sigma = sigma
+
+    def __call__(self):
+        """TODO."""
+        return np.random.normal(loc=0., scale=self.sigma, size=(self.ac_dim,))
+
+    def reset(self):
+        """TODO."""
+        pass
+
+
 class OrnsteinUhlenbeckActionNoise:
     """TODO.
 
@@ -154,36 +183,6 @@ class TrainingProgress(object):
             self.record_dict = record_dict or {}  # Recommend, record with step
 
         self.logger = logging.getLogger('TP')
-
-    def save_model_weight(self, model, epoch, prefix=''):
-        """TODO.
-
-        Parameters
-        ----------
-        model : TODO
-            TODO
-        epoch : TODO
-            TODO
-        prefix : TODO
-            TODO
-        """
-        name = self.progress_path + prefix + 'model-' + str(epoch) + '.tp'
-        torch.save(model.state_dict(), name)
-
-    def restore_model_weight(self, epoch, device, prefix=''):
-        """TODO.
-
-        Parameters
-        ----------
-        epoch : TODO
-            TODO
-        device : TODO
-            TODO
-        prefix : TODO
-            TODO
-        """
-        name = self.progress_path + prefix + 'model-' + str(epoch) + '.tp'
-        return torch.load(name, map_location=device)
 
     def add_meta(self, new_dict):
         """Update the internal meta_dict with new data."""

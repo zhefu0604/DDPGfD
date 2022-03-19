@@ -44,10 +44,10 @@ class ActorNet(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(in_dim, HIDDEN_LAYERS, bias=False),
             nn.Dropout(0.5),
-            nn.ELU(),
+            nn.ReLU(),
             nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS, bias=False),
             nn.Dropout(0.5),
-            nn.ELU(),
+            nn.ReLU(),
             nn.Linear(HIDDEN_LAYERS, out_dim),
             nn.Tanh(),
         )  # +-1 output
@@ -105,18 +105,35 @@ class CriticNet(nn.Module):
         in_dim = s_dim + a_dim
 
         # Create the network.
-        self.net = nn.Sequential(
+        self.q1 = nn.Sequential(
             nn.Linear(in_dim, HIDDEN_LAYERS, bias=False),
             nn.Dropout(0.5),
-            nn.ELU(),
+            nn.ReLU(),
             nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS, bias=False),
             nn.Dropout(0.5),
-            nn.ELU(),
+            nn.ReLU(),
+            nn.Linear(HIDDEN_LAYERS, 1),
+        )
+
+        self.q2 = nn.Sequential(
+            nn.Linear(in_dim, HIDDEN_LAYERS, bias=False),
+            nn.Dropout(0.5),
+            nn.ReLU(),
+            nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS, bias=False),
+            nn.Dropout(0.5),
+            nn.ReLU(),
             nn.Linear(HIDDEN_LAYERS, 1),
         )
 
         # Initialize weights and biases.
-        for i, x in enumerate(self.net.modules()):
+        for i, x in enumerate(self.q1.modules()):
+            if i in [1, 4]:
+                init_fanin(x.weight)
+            if i == 7:
+                nn.init.uniform_(x.weight, -3e-3, 3e-3)
+                nn.init.uniform_(x.bias, -3e-3, 3e-3)
+
+        for i, x in enumerate(self.q2.modules()):
             if i in [1, 4]:
                 init_fanin(x.weight)
             if i == 7:
@@ -136,4 +153,19 @@ class CriticNet(nn.Module):
         TODO
             Q-values , (N,1)
         """
-        return self.net(sa_pairs)
+        return self.q1(sa_pairs), self.q2(sa_pairs)
+
+    def Q1(self, sa_pairs):
+        """TODO.
+
+        Parameters
+        ----------
+        sa_pairs : TODO
+            state-action pairs, (N, in_dim)
+
+        Returns
+        -------
+        TODO
+            Q-values , (N,1)
+        """
+        return self.q1(sa_pairs)

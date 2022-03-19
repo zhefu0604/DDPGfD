@@ -21,7 +21,11 @@ np.set_printoptions(suppress=True, precision=4)
 
 
 class RLTrainer:
-    """TODO."""
+    """TODO.
+
+    Attributes
+    ----------
+    """
 
     def __init__(self, conf_path, evaluate=False):
         """Instantiate the RL algorithm.
@@ -93,14 +97,7 @@ class RLTrainer:
         self.tp.restore_progress(self.conf.tps)
 
         # Restore weights and biases.
-        self.agent.actor_b.load_state_dict(self.tp.restore_model_weight(
-                self.conf.tps, self.device, prefix='actor_b'))
-        self.agent.actor_t.load_state_dict(self.tp.restore_model_weight(
-            self.conf.tps, self.device, prefix='actor_t'))
-        self.agent.critic_b.load_state_dict(self.tp.restore_model_weight(
-            self.conf.tps, self.device, prefix='critic_b'))
-        self.agent.critic_t.load_state_dict(self.tp.restore_model_weight(
-            self.conf.tps, self.device, prefix='critic_t'))
+        self.agent.load(self.tp.progress_path, epoch=self.conf.tps)
 
         # Restore random seeds and number of episodes previously trained.
         self.episode = self.tp.get_meta('saved_episode') + 1
@@ -124,22 +121,14 @@ class RLTrainer:
     def save_progress(self):
         """Save the policy weights, biases, and configuration parameters."""
         # Save policy parameters.
-        self.tp.save_model_weight(
-            self.agent.actor_b, self.episode, prefix='actor_b')
-        self.tp.save_model_weight(
-            self.agent.actor_t, self.episode, prefix='actor_t')
-        self.tp.save_model_weight(
-            self.agent.critic_b, self.episode, prefix='critic_b')
-        self.tp.save_model_weight(
-            self.agent.critic_t, self.episode, prefix='critic_t')
+        self.agent.save(self.tp.progress_path, epoch=self.epoch)
 
         # Save configuration.
-        self.tp.save_progress(self.episode)
+        self.tp.save_progress(self.epoch)
         self.tp.save_conf(self.conf.to_dict())
 
         self.logger.info('Config name ' + self.conf.exp_name)
-        self.logger.info('Progress Saved, current episode={}'.format(
-            self.episode))
+        self.logger.info('Progress Saved, current epoch={}'.format(self.epoch))
 
     def demo2memory(self):
         """Import demonstration from pkl files to the replay buffer."""

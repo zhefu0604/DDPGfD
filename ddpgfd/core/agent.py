@@ -7,7 +7,7 @@ import logging
 from ddpgfd.core.model import ActorNet
 from ddpgfd.core.model import CriticNet
 from ddpgfd.core.replay_memory import PrioritizedReplayBuffer
-from ddpgfd.core.training_utils import OrnsteinUhlenbeckActionNoise
+from ddpgfd.core.training_utils import GaussianActionNoise
 
 # constant signifying that data was collected from a demonstration
 DATA_DEMO = 0
@@ -63,6 +63,11 @@ class DDPGfDAgent(nn.Module):
         self.device = device
         self.logger = logging.getLogger('DDPGfD')
 
+        # TODO
+        self.policy_noise = 0.2
+        self.noise_clip = 0.5
+        self.policy_freq = 2
+
         # Create the actor base and target networks.
         self.actor_b = ActorNet(
             self.agent_conf.state_dim, self.agent_conf.action_dim, self.device)
@@ -104,9 +109,10 @@ class DDPGfDAgent(nn.Module):
             self.q_criterion = nn.SmoothL1Loss(reduction=reduction)
 
         # exploration noise
-        self.action_noise = OrnsteinUhlenbeckActionNoise(
-            mu=np.zeros(self.agent_conf.action_dim),
-            sigma=self.agent_conf.action_noise_std)
+        self.action_noise = GaussianActionNoise(sigma=0.1, ac_dim=1)
+        # self.action_noise = OrnsteinUhlenbeckActionNoise(
+        #     mu=np.zeros(self.agent_conf.action_dim),
+        #     sigma=self.agent_conf.action_noise_std)
 
     def _set_optimizer(self):
         """Create the optimizer objects."""
@@ -163,6 +169,7 @@ class DDPGfDAgent(nn.Module):
         losses_actor = []
         demo_cnt = []
         batch_sz = 0
+        not_done = 1.  # TODO
         if self.memory.ready():
             # Sample a batch of data.
             (batch_s, batch_a, batch_r, batch_s2, batch_gamma,
@@ -179,52 +186,123 @@ class DDPGfDAgent(nn.Module):
                 self.device)
             batch_sz += batch_s.shape[0]
 
-            # Compute the target for the critic.
             with torch.no_grad():
-                action_tgt = self.actor_t(batch_s2)
-                y_tgt = batch_r + batch_gamma * self.critic_t(
-                    torch.cat((batch_s2, action_tgt), dim=1))
+                # Select action according to policy and add clipped noise.
+                noise = (torch.randn_like(batch_a) * self.policy_noise).clamp(
+                    -self.noise_clip, self.noise_clip)
+                next_action = (self.actor_t(batch_s2) + noise).clamp(-1, 1)
 
-            # Critic loss
-            self.zero_grad()
+                # Compute the target Q value.
+                target_q1, target_q2 = self.critic_t(
+                    torch.cat((batch_s2, next_action), dim=1))
+                target_q = torch.min(target_q1, target_q2)
+                target_q = batch_r + not_done * batch_gamma * target_q
+
+            # Get current Q estimates
+            q1, q2 = self.critic_b(torch.cat((batch_s, batch_a), dim=1))
+
+            # Compute critic loss.
+            critic_loss = self.q_criterion(q1, target_q).mean() + \
+                self.q_criterion(q2, target_q).mean()
+
+            # Optimize the critic.
             self.optimizer_critic.zero_grad()
-            q_b = self.critic_b(torch.cat((batch_s, batch_a), dim=1))
-            loss_critic = (self.q_criterion(q_b, y_tgt) * weights).mean()
+            critic_loss.backward()
+            self.optimizer_critic.step()
+            losses_critic.append(critic_loss.item())
 
-            # Record Demo count
+            # Record Demo count.
             d_flags = torch.from_numpy(batch_flags)
             demo_select = d_flags == DATA_DEMO
             n_act = demo_select.sum().item()
             demo_cnt.append(n_act)
-            loss_critic.backward()
-            self.optimizer_critic.step()
 
-            # Actor loss
-            self.optimizer_actor.zero_grad()
-            action_b = self.actor_b(batch_s)
-            q_act = self.critic_b(torch.cat((batch_s, action_b), dim=1))
-            loss_actor = -torch.mean(q_act)
-            loss_actor.backward()
-            self.optimizer_actor.step()
+            # Delayed policy updates
+            if update_step % self.policy_freq == 0:
+                # Compute actor losses.
+                actor_loss = -self.critic_b.Q1(
+                    torch.cat((batch_s, self.actor_b(batch_s)), dim=1)).mean()
 
-            if not self.agent_conf.no_per:
+                # Optimize the actor.
+                self.optimizer_actor.zero_grad()
+                actor_loss.backward()
+                self.optimizer_actor.step()
+                losses_actor.append(actor_loss.item())
+
                 # Update priorities in the replay buffer.
-                priority = ((q_b.detach() - y_tgt).pow(2) +
-                            q_act.detach().pow(2)).numpy().ravel() \
-                    + self.agent_conf.const_min_priority
-                priority[batch_flags == DATA_DEMO] += \
-                    self.agent_conf.const_demo_priority
+                if not self.agent_conf.no_per:
+                    priority = ((q1.detach() - target_q).pow(2) +
+                                q_act.detach().pow(2)).numpy().ravel() \
+                        + self.agent_conf.const_min_priority
+                    priority[batch_flags == DATA_DEMO] += \
+                        self.agent_conf.const_demo_priority
 
-                self.memory.update_priorities(idxes, priority)
+                    self.memory.update_priorities(idxes, priority)
 
-            # Update target.
-            self.update_target(self.actor_b, self.actor_t)
-            self.update_target(self.critic_b, self.critic_t)
-
-            # Add the losses for this training step.
-            losses_actor.append(loss_actor.item())
-            losses_critic.append(loss_critic.item())
+                # Update target.
+                self.update_target(self.actor_b, self.actor_t)
+                self.update_target(self.critic_b, self.critic_t)
 
         demo_n = max(sum(demo_cnt), 1e-10)
 
         return np.sum(losses_critic), np.sum(losses_actor), demo_n, batch_sz
+
+    def save(self, progress_path, epoch):
+        """TODO.
+
+        Parameters
+        ----------
+
+        """
+        self._save_model_weight(
+            self.actor_b, progress_path, epoch, prefix='actor_b')
+        self._save_model_weight(
+            self.actor_t, progress_path, epoch, prefix='actor_t')
+        self._save_model_weight(
+            self.critic_b, progress_path, epoch, prefix='critic_b')
+        self._save_model_weight(
+            self.critic_t, progress_path, epoch, prefix='critic_t')
+
+    def load(self, progress_path, epoch):
+        """TODO.
+
+        Parameters
+        ----------
+
+        """
+        self.actor_b.load_state_dict(self.restore_model_weight(
+            progress_path, epoch, prefix='actor_b'))
+        self.actor_t.load_state_dict(self.restore_model_weight(
+            progress_path, epoch, prefix='actor_t'))
+        self.critic_b.load_state_dict(self.restore_model_weight(
+            progress_path, epoch, prefix='critic_b'))
+        self.critic_t.load_state_dict(self.restore_model_weight(
+            progress_path, epoch, prefix='critic_t'))
+
+    def _save_model_weight(self, model, progress_path, epoch, prefix=''):
+        """TODO.
+
+        Parameters
+        ----------
+        model : TODO
+            TODO
+        epoch : TODO
+            TODO
+        prefix : TODO
+            TODO
+        """
+        name = progress_path + prefix + 'model-' + str(epoch) + '.tp'
+        torch.save(model.state_dict(), name)
+
+    def _restore_model_weight(self, progress_path, epoch, prefix=''):
+        """TODO.
+
+        Parameters
+        ----------
+        epoch : TODO
+            TODO
+        prefix : TODO
+            TODO
+        """
+        name = progress_path + prefix + 'model-' + str(epoch) + '.tp'
+        return torch.load(name, map_location=self.device)

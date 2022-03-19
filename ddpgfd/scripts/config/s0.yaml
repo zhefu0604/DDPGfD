@@ -8,7 +8,7 @@ train_config:
   restore: false # Restore for training or evaluation
   tps: 1800 # Restored episode for evaluation
   n_episode: 1000 # Total Training Episode
-  batch_size: 1024 # Sample from PER
+  batch_size: 256 # Sample from PER
   update_step: 10 # Number of environment steps per policy update
   mse_loss: true # for Q loss
   save_every: 1 # save and log training
@@ -20,9 +20,9 @@ train_config:
 agent_config:
   state_dim: 15
   action_dim: 1
-  gamma: 0.995 # Reward discount
+  gamma: 0.99 # Reward discount
   seed: 54760
-  replay_buffer_size: 1000000
+  replay_buffer_size: 100000
   tau: 0.005 # Continuous update, source network portion, per episode
   action_noise_std: 0.1
   const_demo_priority: 0.99 # Should be less than 1
@@ -31,5 +31,5 @@ agent_config:
 
 demo_config:
   load_demo_data: true
-  demo_dir: './demo/random/2-avs/accel=0.5/no-lc'
+  demo_dir: './demo/random/1-av/accel=0.5/with-lc'
   random: true
