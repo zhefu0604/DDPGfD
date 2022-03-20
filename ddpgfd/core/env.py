@@ -1,3 +1,4 @@
+"""Environment compatible with trajectory_training."""
 import os
 import random
 import gym
@@ -6,16 +7,24 @@ from gym.envs.registration import register
 
 
 class TrajectoryEnv(gym.Env):
+    """Environment compatible with trajectory_training.
 
-    def __init__(self):
+    Separate environments are created for each trajectory, and at reset, one
+    trajectory is sampled and advanced for the corresponding rollout.
+
+    Holdout set trajecotries are not included during training.
+    """
+
+    def __init__(self, conf):
+        """Instantiate the environment."""
         # Construct Env
-        self.all_envs = self._create_envs()
+        self.all_envs = self._create_envs(conf)
 
         # Choose a current environment.
         self.current_env = random.sample(self.all_envs, 1)[0]
 
     @staticmethod
-    def _create_envs():
+    def _create_envs(conf):
         """Create a separate environment for each trajectory."""
         filenames = [
             "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_0_4597",
@@ -86,47 +95,52 @@ class TrajectoryEnv(gym.Env):
 
         all_envs = []
         for i, fp in enumerate(filenames):
+            env_config = {
+                'horizon': 1000,
+                'min_headway': 7.0,
+                'max_headway': 120.0,
+                'whole_trajectory': True,
+                'discrete': False,
+                'num_actions': 7,
+                'use_fs': False,
+                'augment_vf': False,
+                'minimal_time_headway': 1.0,
+                'include_idm_mpg': False,
+                'num_concat_states': 1,
+                'num_steps_per_sim': 1,
+                'platoon': 'av human*4',  # '2avs_4%',
+                'av_controller': 'rl',
+                'av_kwargs': '{}',
+                'human_controller': 'idm',
+                'human_kwargs': '{}',
+                'fixed_traj_path': os.path.join(
+                    config.PROJECT_PATH,
+                    'dataset/data_v2_preprocessed_west/{}/'
+                    'trajectory.csv'.format(fp)
+                ),
+                'lane_changing': False,
+            }
+            env_config.update(conf)
+
             register(
                 id="TrajectoryEnv-v{}".format(i),
                 entry_point="trajectory.env.trajectory_env:TrajectoryEnv",
-                kwargs={
-                    "config": {
-                        'horizon': 1000,
-                        'min_headway': 7.0,
-                        'max_headway': 120.0,
-                        'whole_trajectory': True,
-                        'discrete': False,
-                        'num_actions': 7,
-                        'use_fs': False,
-                        'augment_vf': False,
-                        'minimal_time_headway': 1.0,
-                        'include_idm_mpg': False,
-                        'num_concat_states': 1,
-                        'num_steps_per_sim': 1,
-                        'platoon': 'av human*4',  # '2avs_4%',
-                        'av_controller': 'rl',
-                        'av_kwargs': '{}',
-                        'human_controller': 'idm',
-                        'human_kwargs': '{}',
-                        'fixed_traj_path': os.path.join(
-                            config.PROJECT_PATH,
-                            'dataset/data_v2_preprocessed_west/{}/'
-                            'trajectory.csv'.format(fp)
-                        ),
-                        'lane_changing': False,
-                    },
-                    "_simulate": True,
-                })
+                kwargs={"config": env_config, "_simulate": True})
 
-            # Make the gym environment
+            # Make the gym environment.
             all_envs.append(gym.make("TrajectoryEnv-v{}".format(i)))
 
         return all_envs
 
     def step(self, action):
+        """Advance the simulation by one step."""
         return self.current_env.step(action)
 
     def reset(self):
+        """Reset the environment.
+
+        A new trajectory is chosen and memory is cleared here.
+        """
         # Clear memory from the prior environment. This is to deal with the
         # explosion in memory.
         if self.current_env.sim is not None:
@@ -138,4 +152,16 @@ class TrajectoryEnv(gym.Env):
         return self.current_env.reset()
 
     def render(self, mode="human"):
+        """See parent class."""
         pass
+
+    @property
+    def observation_space(self):
+        """Return the observation space."""
+        return gym.spaces.Box(
+            low=-float("inf"), high=float("inf"), shape=(15,))
+
+    @property
+    def action_space(self):
+        """Return the action space."""
+        return gym.spaces.Box(low=-1, high=1, shape=(1,))

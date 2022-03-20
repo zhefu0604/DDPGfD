@@ -1,4 +1,4 @@
-"""TODO."""
+"""Various methods used for logging purposes."""
 import logging
 import os
 import sys
@@ -89,26 +89,7 @@ class ColorStreamHandler(logging.StreamHandler):
 
 
 def logger_setup(log_file, loggers, level):
-    """TODO.
-
-    Parameters
-    ----------
-    log_file : TODO
-        TODO
-    loggers : TODO
-        TODO
-    level : TODO
-        TODO
-
-    Returns
-    -------
-    TODO
-        TODO
-    TODO
-        TODO
-    TODO
-        TODO
-    """
+    """TODO."""
     global logger_is_setup, console_handler, file_handler
     if logger_is_setup:
         print('Logger Already Setup, Check your code')

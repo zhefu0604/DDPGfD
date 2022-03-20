@@ -1,4 +1,4 @@
-"""TODO."""
+"""Various utility methods when training a policy."""
 import numpy as np
 import errno
 import torch
@@ -9,10 +9,6 @@ import prodict
 import yaml
 import logging
 from shutil import copy2
-
-matplotlib.use('Agg')
-
-np.set_printoptions(suppress=True, precision=5)
 
 
 def load_conf(path):
@@ -32,68 +28,80 @@ def check_path(path):
             raise
 
 
-class GaussianActionNoise(object):
-    """TODO.
+class ActionNoise(object):
+    """Base action noise object. Used for exploration purposes."""
+
+    def __call__(self):
+        """Run a forward pass of the object."""
+        raise NotImplementedError
+
+    def reset(self):
+        """Reset the object between rollouts."""
+        raise NotImplementedError
+
+
+class GaussianActionNoise(ActionNoise):
+    """Gaussian action noise.
 
     Attributes
     ----------
-    sigma : TODO
-        TODO
+    std : float
+        standard deviation of Gaussian noise
     """
 
-    def __init__(self, sigma, ac_dim=1):
-        """TODO.
+    def __init__(self, std, ac_dim=1):
+        """Instantiate the noise object.
 
         Attributes
         ----------
-        sigma : TODO
-            TODO
+        std : float
+            standard deviation of Gaussian noise
         """
         self.ac_dim = ac_dim
-        self.sigma = sigma
+        self.std = std
 
     def __call__(self):
-        """TODO."""
-        return np.random.normal(loc=0., scale=self.sigma, size=(self.ac_dim,))
+        """See parent class."""
+        return np.random.normal(loc=0., scale=self.std, size=(self.ac_dim,))
 
     def reset(self):
-        """TODO."""
+        """See parent class."""
         pass
 
 
-class OrnsteinUhlenbeckActionNoise:
-    """TODO.
+class OrnsteinUhlenbeckActionNoise(ActionNoise):
+    """Ornstein-Uhlenbeck action noise.
 
     Attributes
     ----------
-    theta : TODO
+    theta : array_like
         TODO
-    mu : TODO
+    mu : array_like
         TODO
     sigma : TODO
         TODO
-    dt : TODO
+    dt : float
         TODO
-    x0 : TODO
+    x0 : array_like
         TODO
-    x_prev : TODO
+    x_prev : array_like
         TODO
     """
 
     def __init__(self, mu, sigma, theta=.15, dt=1e-2, x0=None):
-        """TODO.
+        """Instantiate the noise object.
 
         Attributes
         ----------
-        theta : TODO
+        theta : array_like
             TODO
-        mu : TODO
+        mu : array_like
             TODO
         sigma : TODO
             TODO
-        dt : TODO
+        dt : float
             TODO
-        x0 : TODO
+        x0 : array_like or None
             TODO
         """
         self.theta = theta
@@ -105,7 +113,7 @@ class OrnsteinUhlenbeckActionNoise:
         self.reset()
 
     def __call__(self):
-        """TODO."""
+        """See parent class."""
         x = self.x_prev + \
             self.theta * (self.mu - self.x_prev) * self.dt + \
             self.sigma * np.sqrt(self.dt) * \
@@ -114,13 +122,8 @@ class OrnsteinUhlenbeckActionNoise:
         return x
 
     def reset(self):
-        """TODO."""
+        """See parent class."""
         self.x_prev = self.x0 or np.zeros_like(self.mu)
-
-    def __repr__(self):
-        """TODO."""
-        return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(
-            self.mu, self.sigma)
 
 
 class TrainingProgress(object):
@@ -128,16 +131,16 @@ class TrainingProgress(object):
 
     Attributes
     ----------
-    result_path : TODO
+    result_path : str
         TODO
-    progress_path : TODO
+    progress_path : str
         TODO
     meta_dict : dict
         TODO
-    record_dict : TODO
+    record_dict : str
         TODO
-    logger : TODO
-        TODO
+    logger : object
+        a logger object
     """
 
     def __init__(self,
@@ -147,7 +150,7 @@ class TrainingProgress(object):
                  meta_dict=None,
                  record_dict=None,
                  restore=False):
-        """TODO.
+        """Instantiate the object.
 
         Header => Filename header,append file name behind
         Data Dict => Appendable data (loss,time,acc....)
@@ -155,17 +158,17 @@ class TrainingProgress(object):
 
         Parameters
         ----------
-        result_path : TODO
+        result_path : str
             TODO
-        folder_name : TODO
+        folder_name : str
             TODO
-        tp_step : TODO
+        tp_step : int or None
             TODO
-        meta_dict : TODO
+        meta_dict : dict or None
             TODO
-        record_dict : TODO
+        record_dict : dict or None
             TODO
-        restore : TODO
+        restore : bool
             TODO
         """
         self.result_path = os.path.join(result_path, folder_name) + "/"
@@ -201,13 +204,13 @@ class TrainingProgress(object):
 
         Parameters
         ----------
-        epoch : TODO
-            TODO
+        epoch : int
+            the current training epoch
         prefix : TODO
             TODO
-        new_dict : TODO
+        new_dict : dict
             TODO
-        display : TODO
+        display : bool
             TODO
         """
         # record every epoch, prefix=train/test/validation....
@@ -230,9 +233,9 @@ class TrainingProgress(object):
 
         Parameters
         ----------
-        tp_step : TODO
+        tp_step : int
             TODO
-        override_path : TODO
+        override_path : str or None
             TODO
         """
         name = self.progress_path + str(tp_step) + '.tpdata' \
@@ -242,13 +245,13 @@ class TrainingProgress(object):
             pickle.dump((self.meta_dict, self.record_dict), f, protocol=2)
 
     def restore_progress(self, tp_step, override_path=None):
-        """TODO.
+        """Restore meta_dict and record_dict from a given path.
 
         Parameters
         ----------
-        tp_step : TODO
+        tp_step : int
             TODO
-        override_path : TODO
+        override_path : str or None
             TODO
         """
         name = self.progress_path + str(tp_step) + '.tpdata' \
@@ -256,28 +259,28 @@ class TrainingProgress(object):
         with open(name, 'rb') as f:
             self.meta_dict, self.record_dict = pickle.load(f)
 
-    def backup_file(self, src, file_name):  # Saved in result
-        """TODO.
+    def backup_file(self, src, file_name):
+        """Save in result.
 
         Parameters
         ----------
-        src : TODO
-            TODO
-        file_name : TODO
-            TODO
+        src : str
+            the source path to copy data from
+        file_name : str
+            the path to save results in
         """
         self.logger.info('Backup ' + src)
         copy2(src, self.result_path + file_name)
 
     def save_conf(self, dict, prefix=''):
-        """TODO.
+        """Save training parameters in a conf.yaml file.
 
         Parameters
         ----------
-        dict : TODO
-            TODO
-        prefix : TODO
-            TODO
+        dict : dict
+            dictionary of training parameters
+        prefix : str
+            a prefix to add to the file name
         """
         path = self.result_path + prefix + 'conf.yaml'
         with open(path, 'w') as outfile:

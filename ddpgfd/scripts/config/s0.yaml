@@ -1,6 +1,5 @@
 ---
 train_config:
-  env_port: 19999
   seed: 1000
   exp_name: 's0'
   lr_rate: 0.0003
@@ -18,11 +17,9 @@ train_config:
   pretrain_step: 10000
 
 agent_config:
-  state_dim: 15
-  action_dim: 1
   gamma: 0.99 # Reward discount
   seed: 54760
-  replay_buffer_size: 100000
+  replay_buffer_size: 500000
   tau: 0.005 # Continuous update, source network portion, per episode
   action_noise_std: 0.1
   const_demo_priority: 0.99 # Should be less than 1

@@ -1,4 +1,4 @@
-"""TODO."""
+"""Script containing the DDPGfD agent class."""
 import numpy as np
 import torch
 import torch.nn as nn
@@ -16,72 +16,72 @@ DATA_RUNTIME = 1
 
 
 class DDPGfDAgent(nn.Module):
-    """TODO.
+    """DDPG from Demonstration agent class.
+
+    See: https://arxiv.org/pdf/1707.08817.pdf
 
     Attributes
     ----------
-    conf : TODO
-        TODO
-    agent_conf : TODO
-        TODO
-    device : TODO
-        TODO
-    logger : TODO
-        TODO
-    actor_b : TODO
-        TODO
-    actor_t : TODO
-        TODO
-    critic_b : TODO
-        TODO
-    critic_t : TODO
-        TODO
-    memory : TODO
-        TODO
-    optimizer_actor : TODO
-        TODO
-    optimizer_critic : TODO
-        TODO
-    action_noise : TODO
-        TODO
+    conf : object
+        full configuration parameters
+    agent_conf : object
+        agent configuration parameters
+    device : torch.device
+        context-manager that changes the selected device.
+    state_dim : int
+        number of elements in the state space
+    action_dim : int
+        number of elements in the action space
+    actor_b : ddpgfd.core.model.ActorNet
+        base actor network
+    actor_t : ddpgfd.core.model.ActorNet
+        target actor network
+    critic_b : ddpgfd.core.model.CriticNet
+        base critic network
+    critic_t : ddpgfd.core.model.CriticNet
+        target critic network
+    memory : ddpgfd.core.replay_memory.PrioritizedReplayBuffer
+        replay buffer object
+    optimizer_actor : torch.optim.Adam
+        an optimizer object for the actor
+    optimizer_critic : torch.optim.Adam
+        an optimizer object for the critic
+    action_noise : ddpgfd.core.training_utils.ActionNoise
+        Gaussian action noise object, for exploration purposes
     """
 
-    def __init__(self, conf, device):
-        """TODO.
+    def __init__(self, conf, device, state_dim, action_dim):
+        """Instantiate the agent class.
 
         Parameters
         ----------
-        conf : TODO
-            TODO
-        device : TODO
-            TODO
+        conf : object
+            full configuration parameters
+        device : torch.device
+            context-manager that changes the selected device.
+        state_dim : int
+            number of elements in the state space
+        action_dim : int
+            number of elements in the action space
         """
         super(DDPGfDAgent, self).__init__()
 
         self.conf = conf
         self.agent_conf = self.conf.agent_config
         self.device = device
-        self.logger = logging.getLogger('DDPGfD')
-
-        # TODO
-        self.policy_noise = 0.2
-        self.noise_clip = 0.5
-        self.policy_freq = 2
+        self.state_dim = state_dim
+        self.action_dim = action_dim
 
         # Create the actor base and target networks.
-        self.actor_b = ActorNet(
-            self.agent_conf.state_dim, self.agent_conf.action_dim, self.device)
-        self.actor_t = ActorNet(
-            self.agent_conf.state_dim, self.agent_conf.action_dim, self.device)
+        self.actor_b = ActorNet(state_dim, action_dim, device)
+        self.actor_t = ActorNet(state_dim, action_dim, device)
 
         # Create the critic base and target network.
-        self.critic_b = CriticNet(
-            self.agent_conf.state_dim, self.agent_conf.action_dim, self.device)
-        self.critic_t = CriticNet(
-            self.agent_conf.state_dim, self.agent_conf.action_dim, self.device)
+        self.critic_b = CriticNet(state_dim, action_dim, device)
+        self.critic_t = CriticNet(state_dim, action_dim, device)
 
         # Set random seed.
-        self.rs = np.random.RandomState(self.agent_conf.seed)
+        self.rs = np.random.RandomState(self.conf.train_config.seed)
 
         # Initialize target policy parameters.
         self.init_target(self.actor_b, self.actor_t)
@@ -90,7 +90,7 @@ class DDPGfDAgent(nn.Module):
         # Create the replay buffer.
         self.memory = PrioritizedReplayBuffer(
             size=self.agent_conf.replay_buffer_size,
-            seed=self.agent_conf.seed,
+            seed=self.conf.train_config.seed,
             alpha=0.3,
             beta_init=1.0,
             beta_inc_n=100,
@@ -109,10 +109,8 @@ class DDPGfDAgent(nn.Module):
             self.q_criterion = nn.SmoothL1Loss(reduction=reduction)
 
         # exploration noise
-        self.action_noise = GaussianActionNoise(sigma=0.1, ac_dim=1)
-        # self.action_noise = OrnsteinUhlenbeckActionNoise(
-        #     mu=np.zeros(self.agent_conf.action_dim),
-        #     sigma=self.agent_conf.action_noise_std)
+        self.action_noise = GaussianActionNoise(
+            std=self.agent_conf.action_noise_std, ac_dim=action_dim)
 
     def _set_optimizer(self):
         """Create the optimizer objects."""
@@ -188,8 +186,9 @@ class DDPGfDAgent(nn.Module):
 
             with torch.no_grad():
                 # Select action according to policy and add clipped noise.
-                noise = (torch.randn_like(batch_a) * self.policy_noise).clamp(
-                    -self.noise_clip, self.noise_clip)
+                noise = (torch.randn_like(batch_a) *
+                         self.agent_conf.policy_noise).clamp(
+                    -self.agent_conf.noise_clip, self.agent_conf.noise_clip)
                 next_action = (self.actor_t(batch_s2) + noise).clamp(-1, 1)
 
                 # Compute the target Q value.
@@ -218,7 +217,7 @@ class DDPGfDAgent(nn.Module):
             demo_cnt.append(n_act)
 
             # Delayed policy updates
-            if update_step % self.policy_freq == 0:
+            if update_step % self.agent_conf.policy_freq == 0:
                 # Compute actor losses.
                 actor_loss = -self.critic_b.Q1(
                     torch.cat((batch_s, self.actor_b(batch_s)), dim=1)).mean()
@@ -248,11 +247,14 @@ class DDPGfDAgent(nn.Module):
         return np.sum(losses_critic), np.sum(losses_actor), demo_n, batch_sz
 
     def save(self, progress_path, epoch):
-        """TODO.
+        """Save all model parameters to a given path.
 
         Parameters
         ----------
-
+        progress_path : str
+            the path to the directory where all logs are stored
+        epoch : int
+            the current training epoch
         """
         self._save_model_weight(
             self.actor_b, progress_path, epoch, prefix='actor_b')
@@ -264,11 +266,14 @@ class DDPGfDAgent(nn.Module):
             self.critic_t, progress_path, epoch, prefix='critic_t')
 
     def load(self, progress_path, epoch):
-        """TODO.
+        """Load all model parameters from a given path.
 
         Parameters
         ----------
-
+        progress_path : str
+            the path to the directory where all logs are stored
+        epoch : int
+            the training epoch to collect model parameters from
         """
         self.actor_b.load_state_dict(self.restore_model_weight(
             progress_path, epoch, prefix='actor_b'))
@@ -280,29 +285,29 @@ class DDPGfDAgent(nn.Module):
             progress_path, epoch, prefix='critic_t'))
 
     def _save_model_weight(self, model, progress_path, epoch, prefix=''):
-        """TODO.
+        """Save a model's parameters is a specified path.
 
         Parameters
         ----------
-        model : TODO
-            TODO
-        epoch : TODO
-            TODO
-        prefix : TODO
-            TODO
+        model : torch.nn.Module
+            the model whose weights should be saved
+        epoch : int
+            the current training epoch
+        prefix : str
+            an auxiliary string specifying the type of model
         """
         name = progress_path + prefix + 'model-' + str(epoch) + '.tp'
         torch.save(model.state_dict(), name)
 
     def _restore_model_weight(self, progress_path, epoch, prefix=''):
-        """TODO.
+        """Restor a model's parameters from a specified path.
 
         Parameters
         ----------
-        epoch : TODO
-            TODO
-        prefix : TODO
-            TODO
+        epoch : int
+            the training epoch to collect model parameters from
+        prefix : str
+            an auxiliary string specifying the type of model
         """
         name = progress_path + prefix + 'model-' + str(epoch) + '.tp'
         return torch.load(name, map_location=self.device)

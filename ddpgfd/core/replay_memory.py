@@ -1,4 +1,4 @@
-"""TODO."""
+"""Script containing the prioritized replay buffer."""
 import numpy as np
 import torch
 import operator
@@ -83,14 +83,14 @@ class SegmentTree(object):
         return self._reduce_helper(start, end, 1, 0, self._capacity - 1)
 
     def __setitem__(self, idx, val):
-        """TODO.
+        """Set an item.
 
         Parameters
         ----------
-        idx : TODO
-            TODO
-        val : TODO
-            TODO
+        idx : int
+            index
+        val : Any
+            the item to set to
         """
         # index of the leaf
         idx += self._capacity
@@ -104,12 +104,12 @@ class SegmentTree(object):
             idx //= 2
 
     def __getitem__(self, idx):
-        """TODO.
+        """Return an item.
 
         Parameters
         ----------
-        idx : TODO
-            TODO
+        idx : int
+            the index
         """
         assert 0 <= idx < self._capacity
         return self._value[self._capacity + idx]
@@ -119,12 +119,12 @@ class SumSegmentTree(SegmentTree):
     """TODO."""
 
     def __init__(self, capacity):
-        """TODO.
+        """Instantiate the object.
 
         Parameters
         ----------
-        capacity : TODO
-            TODO
+        capacity : int
+            Total size of the array - must be a power of two.
         """
         super(SumSegmentTree, self).__init__(
             capacity=capacity,
@@ -168,12 +168,12 @@ class MinSegmentTree(SegmentTree):
     """TODO."""
 
     def __init__(self, capacity):
-        """TODO.
+        """Instantiate the object.
 
         Parameters
         ----------
-        capacity : TODO
-            TODO
+        capacity : int
+            Total size of the array - must be a power of two.
         """
         super(MinSegmentTree, self).__init__(
             capacity=capacity,
@@ -206,16 +206,15 @@ class ReplayBuffer(object):
         self._rewards = np.empty(size, dtype=object)
 
     def set_protect_size(self, protect_size):
-        """TODO."""
-        # For keeping demonstration data, keep first protect_size items
+        """keep first protect_size items, for keeping demonstration data."""
         self.protect_idx = protect_size-1
 
     def __len__(self):
-        """TODO."""
+        """Returns the number of samples in the buffer."""
         return self.cur_sz
 
     def add(self, experience):
-        """TODO."""
+        """Add a sample to the replay buffer."""
         # Experience: tuple of (s,a,r,s2) with CPU tensor type
         self._storage[self._next_idx] = experience
         self._rewards[self._next_idx] = experience[2].item()
@@ -225,7 +224,7 @@ class ReplayBuffer(object):
         self.cur_sz = min(self.cur_sz + 1, self._maxsize)
 
     def _encode_sample(self, idxes):
-        """TODO."""
+        """Return samples in idxes in a torch-compatible format."""
         s_, a_, r_, s2_, gamma_, flag_ = [], [], [], [], [], []
         exps = self._storage[idxes]
         for exp in exps:
@@ -301,22 +300,22 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         self.beta = beta_init
 
     def ready(self):
-        """TODO."""
+        """Check whether samples are available in the buffer."""
         return self.cur_sz > 1
 
     def update_beta(self):
-        """TODO."""
+        """Update the beta term."""
         self.beta = min(1., self.beta + self.beta_inc)
 
     def add(self, experience):
-        """TODO."""
+        """See parent class."""
         idx = self._next_idx
         super().add(experience)
         self._it_sum[idx] = self._max_priority ** self._alpha
         self._it_min[idx] = self._max_priority ** self._alpha
 
     def _sample_proportional(self, batch_size):
-        """TODO."""
+        """Sample a batch of data based on priorities."""
         res = []
         p_total = self._it_sum.sum(0, self.cur_sz - 1)
         every_range_len = p_total / batch_size

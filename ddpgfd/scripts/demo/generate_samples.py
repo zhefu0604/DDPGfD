@@ -80,28 +80,24 @@ def reward_fn(headway,
     scale = 0.1
     low = 2
     high = 4
+    energy_steps = 100
     reward = 0.
 
-    th = min((headway[t] / max(speed[t], 1e-10)), 20)
+    th = max(min((headway[t] / max(speed[t], 1e-10)), 20), 0)
 
+    # time headway reward
     if th < low:
         reward -= huber_loss(th - low, delta=1.00)
     elif th > high:
         reward -= huber_loss(th - high, delta=0.25)
 
+    # failsafe reward
     reward -= (accel[t] - realized_accel[t]) ** 2
 
-    # reward -= (
-    #     np.mean(np.clip(
-    #         instant_energy_consumption[max(t-50, 0): t+1],
-    #         a_min=0, a_max=np.inf))
-    #     # + 0.1 * accel[t] ** 2)
-    # )
-
-    # reward -= (
-    #     max(0, instant_energy_consumption[t])
-    #     # + 0.1 * accel[t] ** 2)
-    # )
+    # energy consumption reward
+    reward -= np.mean(np.clip(
+        instant_energy_consumption[max(t-energy_steps, 0): t+1],
+        a_min=0, a_max=np.inf))
 
     return scale * reward
 
@@ -142,10 +138,9 @@ def obs(headway,
         [0.] * n_missed +
         list(speed[min_t: max_t] / SPEED_SCALE) +
         [0.] * n_missed +
-        list((leader_speed[min_t: max_t] - speed[min_t: max_t]) / SPEED_SCALE) +
+        list((leader_speed[min_t: max_t]-speed[min_t: max_t]) / SPEED_SCALE) +
         [0.] * n_missed +
         list(headway[min_t: max_t] / HEADWAY_SCALE))
-        # list(np.clip(headway[min_t: max_t], a_min=0, a_max=HEADWAY_SCALE) / HEADWAY_SCALE))
 
 
 def action(headway,

@@ -1,4 +1,10 @@
-"""TODO."""
+"""Run a training experiment using the DDPGfD algorithm.
+
+Usage
+-----
+
+    python train.py "/path/to/config-file.yaml"
+"""
 import os
 import sys
 import time
@@ -17,25 +23,51 @@ from ddpgfd.core.logger import logger_setup
 from ddpgfd.core.training_utils import TrainingProgress
 from ddpgfd.core.training_utils import load_conf
 
-np.set_printoptions(suppress=True, precision=4)
 
-
-class RLTrainer:
-    """TODO.
+class RLTrainer(object):
+    """RL algorithm object.
 
     Attributes
     ----------
+    full_conf : object
+        full configuration parameters
+    conf : object
+        training configuration parameters
+    tp : ddpgfd.core.training_utils.TrainingProgress
+        TODO
+    logger : object
+        an object used for logging purposes
+    device : torch.device
+        context-manager that changes the selected device.
+    env : ddpgfd.core.env.TrajectoryEnv
+        the training environment
+    agent : ddpgfd.core.agent.DDPGfDAgent
+        the training agent
+    episode : int
+        number of rollouts so far
+    steps : int
+        total number of environment steps
+    epoch_episode_steps : list of float
+        list of total steps in each epsiode since this epoch started
+    epoch_episode_rewards : list of float
+        list of cumulative rewards since this epoch started
+    epoch_episodes : int
+        number of episodes associated with this epoch of training
+    epoch : int
+        total number of training epochs so far
+    episode_rew_history : collections.deque
+        list of cumulative rewards for the past 100 rollouts
+    info_at_done : collections.deque
+        list of info dicts at the final step of the past 100 rollouts
     """
 
-    def __init__(self, conf_path, evaluate=False):
+    def __init__(self, conf_path):
         """Instantiate the RL algorithm.
 
         Parameters
         ----------
         conf_path : str
             path to the configuration yaml file
-        evaluate : bool
-            whether running evaluations
         """
         self.full_conf = load_conf(conf_path)
         self.conf = self.full_conf.train_config
@@ -60,22 +92,24 @@ class RLTrainer:
                 int.from_bytes(os.urandom(4), byteorder="little") >> 1
             self.logger.info('Random Seed={}'.format(self.conf.seed))
 
-        # Random seed
+        # Random seed.
         torch.manual_seed(self.conf.seed)  # cpu
         np.random.seed(self.conf.seed)  # numpy
 
-        # Backup environment config
-        if not evaluate:
-            self.tp.backup_file(conf_path, 'training.yaml')
-
-        # Construct Env
-        self.env = TrajectoryEnv()
-
+        # Construct Env.
+        self.env = TrajectoryEnv(self.full_conf.env_config)
         self.logger.info('Environment Loaded')
 
-        self.agent = DDPGfDAgent(self.full_conf, self.device)
+        # Create the agent class.
+        self.agent = DDPGfDAgent(
+            conf=self.full_conf,
+            device=self.device,
+            state_dim=self.env.observation_space.shape[0],
+            action_dim=self.env.action_space.shape[0],
+        )
         self.agent.to(self.device)
 
+        # Restore previous data and checkpoints.
         if self.conf.restore:
             self.restore_progress()
         else:
@@ -91,6 +125,7 @@ class RLTrainer:
         self.epoch_episodes = 0
         self.epoch = 0
         self.episode_rew_history = deque(maxlen=100)
+        self.info_at_done = deque(maxlen=100)
 
     def restore_progress(self):
         """Restore progress from a previous run to continue training."""
@@ -225,9 +260,9 @@ class RLTrainer:
             self.agent.action_noise.reset()
 
             done = False
+            info = {}
             s_tensor = [self.agent.obs2tensor(s0[i]) for i in range(n_agents)]
             action_lst = []
-
             while not done:
                 with torch.no_grad():
                     # Compute noisy actions by the policy.
@@ -243,7 +278,8 @@ class RLTrainer:
                     action_lst.extend([act.numpy() for act in action])
 
                     # Run environment step.
-                    s2, r, done, _ = self.env.step([a.numpy() for a in action])
+                    s2, r, done, info = self.env.step([
+                        a.numpy() for a in action])
 
                     # Add one-step to memory.
                     s2_tensor = [
@@ -279,6 +315,7 @@ class RLTrainer:
             self.episode_rew_history.append(eps_reward)
             self.epoch_episode_steps.append(eps_length)
             self.epoch_episodes += 1
+            self.info_at_done.append(info)
 
             if self.episode % self.conf.save_every == 0:
                 # Log training performance.
@@ -347,6 +384,11 @@ class RLTrainer:
             'total/episodes': self.episode,
         }
 
+        # Information passed by the environment.
+        for key in self.info_at_done[0].keys():
+            combined_stats['info_at_done/{}'.format(key)] = np.mean([
+                x[key] for x in self.info_at_done])
+
         # Save combined_stats in a csv file.
         file_path = os.path.join(self.tp.result_path, "train.csv")
         exists = os.path.exists(file_path)
@@ -372,19 +414,15 @@ def main(args):
         'conf',
         type=str,
         help='Training Configuration')
-    parser.add_argument(
-        '--eval',
-        action='store_true', default=False,
-        help='Evaluation mode')
 
     # Parse command-line arguments.
     flags = parser.parse_args(args)
 
     # Create the RL trainer object.
-    trainer = RLTrainer(flags.conf, flags.eval)
+    trainer = RLTrainer(flags.conf)
 
     # Pretrain the policy for a number of steps.
-    if trainer.conf.pretrain_demo:
+    if trainer.conf.pretrain_step > 0:
         trainer.pretrain()
 
     # Run the training procedure.
