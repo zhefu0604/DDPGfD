@@ -20,9 +20,9 @@ train_config:
   update_step: 10
   # whether to use MSE loss for the Q function. If set to false, a huber loss
   # is used instead.
-  mse_loss: true
+  mse_loss: false
   # number of episodes between saving and logging intervals
-  save_every: 1
+  save_every: 5
   # number of training iterations to perform on initial demonstrations
   pretrain_step: 0
 
@@ -51,7 +51,7 @@ demo_config:
   # whether to load demonstration data
   load_demo_data: true
   # folder containing demonstration pkl files
-  demo_dir: './demo/random/1-av/accel=0.5/with-lc/th24+fs'
+  demo_dir: './demo/random/th24+fs'
   # whether demonstrations were collected from a random action distribution. In
   # this case, demos are not stored permanently
   random: true

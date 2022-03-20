@@ -1,0 +1,67 @@
+---
+train_config:
+  # random seed
+  seed: 2
+  # experiment name, for logging purposes
+  exp_name: 'th15+mpg5+fs-random-2'
+  # learning rate
+  lr_rate: 0.0003
+  # Adam weight decay
+  w_decay: 0
+  # restore for training or evaluation
+  restore: false
+  # restored episode for evaluation
+  tps: 1800
+  # total training tpisodes
+  n_episode: 1000
+  # training batch size from replay
+  batch_size: 256
+  # number of environment steps per policy update
+  update_step: 10
+  # whether to use MSE loss for the Q function. If set to false, a huber loss
+  # is used instead.
+  mse_loss: false
+  # number of episodes between saving and logging intervals
+  save_every: 5
+  # number of training iterations to perform on initial demonstrations
+  pretrain_step: 0
+
+agent_config:
+  # standard deviation for noise from the output of the target actor policy
+  policy_noise: 0.2
+  # clipping term for the noise injected in the target actor policy
+  noise_clip: 0.5
+  # number of training steps per actor policy update step. The critic policy is
+  # updated every training step
+  policy_freq: 2
+  # reward discount
+  gamma: 0.99
+  # number of samples in the replay buffere
+  replay_buffer_size: 500000
+  # continuous update, source network portion, per actor update step
+  tau: 0.005
+  # standard deviation for Gaussian action noise
+  action_noise_std: 0.1
+  # whether to update priorities in prioritized experience replay
+  no_per: true
+  const_demo_priority: 0.99 # Should be less than 1
+  const_min_priority: 0.001
+
+demo_config:
+  # whether to load demonstration data
+  load_demo_data: true
+  # folder containing demonstration pkl files
+  demo_dir: './demo/random/th15+mpg5+fs'
+  # whether demonstrations were collected from a random action distribution. In
+  # this case, demos are not stored permanently
+  random: true
+
+env_config:
+  # minimum desirable time headway
+  th_min: 1
+  # maximum desirable time headway
+  th_max: 5
+  # whether to use the energy reward
+  use_energy: true
+  # number of timesteps to average the energy reward across
+  energy_steps: 5

@@ -1,10 +1,8 @@
 """Various utility methods when training a policy."""
 import numpy as np
 import errno
-import torch
 import pickle
 import os
-import matplotlib
 import prodict
 import yaml
 import logging
@@ -206,7 +204,7 @@ class TrainingProgress(object):
         ----------
         epoch : int
             the current training epoch
-        prefix : TODO
+        prefix : str
             TODO
         new_dict : dict
             TODO
