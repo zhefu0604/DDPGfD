@@ -109,16 +109,14 @@ class RLTrainer(object):
         )
         self.agent.to(self.device)
 
-        # Restore previous data and checkpoints.
-        if self.conf.restore:
-            self.restore_progress()
-        else:
-            self.episode = 1
-
         # Initialize replay buffer with demonstrations.
-        self.demo2memory()
+        self.demo2memory()  # TODO: move to agent class
+
+        # Initialize the agent class.  TODO: move to __init__
+        self.agent.initialize()
 
         # init
+        self.episode = 1
         self.steps = 0
         self.epoch_episode_steps = []
         self.epoch_episode_rewards = []
@@ -126,20 +124,6 @@ class RLTrainer(object):
         self.epoch = 0
         self.episode_rew_history = deque(maxlen=100)
         self.info_at_done = deque(maxlen=100)
-
-    def restore_progress(self):
-        """Restore progress from a previous run to continue training."""
-        self.tp.restore_progress(self.conf.tps)
-
-        # Restore weights and biases.
-        self.agent.load(self.tp.progress_path, epoch=self.conf.tps)
-
-        # Restore random seeds and number of episodes previously trained.
-        self.episode = self.tp.get_meta('saved_episode') + 1
-        np.random.set_state(self.tp.get_meta('np_random_state'))
-        torch.random.set_rng_state(self.tp.get_meta('torch_random_state'))
-
-        self.logger.info('Restore Progress, Episode={}'.format(self.episode))
 
     def summary(self):
         """Log data to tensorboard and save policy parameters."""
@@ -165,7 +149,7 @@ class RLTrainer(object):
         self.logger.info('Config name ' + self.conf.exp_name)
         self.logger.info('Progress Saved, current epoch={}'.format(self.epoch))
 
-    def demo2memory(self):
+    def demo2memory(self):  # TODO: move to agent class
         """Import demonstration from pkl files to the replay buffer."""
         dconf = self.full_conf.demo_config
         if dconf.load_demo_data:
@@ -203,43 +187,9 @@ class RLTrainer(object):
         else:
             self.logger.info('No Demo Trajectory Loaded')
 
-    def pretrain(self):
-        """Perform training on initial demonstration data."""
-        assert self.full_conf.demo_config.load_demo_data
-        self.agent.train()
-        start_time = time.time()
-        self.logger.info('Run Pretrain')
-        self.episode = 'pre_{}'.format(self.conf.pretrain_step)
-
-        # Perform training on demonstration data.
-        loss_critic = []
-        loss_actor = []
-        demo_n = []
-        batch_sz = []
-        for t in range(self.conf.pretrain_step):
-            q, a, d, b = self.agent.update_agent(t)
-            loss_critic.append(q)
-            loss_actor.append(a)
-            demo_n.append(d)
-            batch_sz.append(b)
-
-        # Log training performance.
-        self._log_training(
-            start_time=start_time,
-            eps_actor_loss=np.mean(loss_actor),
-            eps_critic_loss=np.mean(loss_critic),
-            eps_batch_sz=np.mean(batch_sz),
-            eps_demo_n=np.mean(demo_n),
-            action_mean=None,  # no actions sampled
-            action_std=None,  # no actions sampled
-        )
-
-        self.summary()
-
-        self.episode = 1  # Restore
-
     def train(self):
         """Perform end-to-end training procedure."""
+        # Set the agent in training mode.
         self.agent.train()
 
         epoch_actor_loss = []
@@ -420,10 +370,6 @@ def main(args):
 
     # Create the RL trainer object.
     trainer = RLTrainer(flags.conf)
-
-    # Pretrain the policy for a number of steps.
-    if trainer.conf.pretrain_step > 0:
-        trainer.pretrain()
 
     # Run the training procedure.
     trainer.train()

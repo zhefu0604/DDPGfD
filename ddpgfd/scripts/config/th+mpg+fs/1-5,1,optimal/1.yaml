@@ -8,11 +8,7 @@ train_config:
   lr_rate: 0.0003
   # Adam weight decay
   w_decay: 0
-  # restore for training or evaluation
-  restore: false
-  # restored episode for evaluation
-  tps: 1800
-  # total training tpisodes
+  # total training episodes
   n_episode: 1000
   # training batch size from replay
   batch_size: 256
@@ -46,6 +42,13 @@ agent_config:
   no_per: true
   const_demo_priority: 0.99 # Should be less than 1
   const_min_priority: 0.001
+  # path to the initial policy. If set to a value other than "", the initial
+  # policy from this path/epoch is loaded at the start of training.
+  pretrain_path: ""
+  # the epoch to use whether loading a policy from pretrain_path
+  pretrain_epoch: 1
+  # the weighting term for the Elastic Weight Consolidation penalty
+  ewc_lambda: 0
 
 demo_config:
   # whether to load demonstration data

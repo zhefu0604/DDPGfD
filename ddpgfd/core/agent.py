@@ -2,10 +2,12 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import logging
 
 from ddpgfd.core.model import ActorNet
 from ddpgfd.core.model import CriticNet
 from ddpgfd.core.replay_memory import PrioritizedReplayBuffer
+from ddpgfd.core.training_utils import EWC
 from ddpgfd.core.training_utils import GaussianActionNoise
 
 # constant signifying that data was collected from a demonstration
@@ -21,9 +23,9 @@ class DDPGfDAgent(nn.Module):
 
     Attributes
     ----------
-    conf : object
+    conf : Any
         full configuration parameters
-    agent_conf : object
+    agent_conf : Any
         agent configuration parameters
     device : torch.device
         context-manager that changes the selected device.
@@ -47,6 +49,8 @@ class DDPGfDAgent(nn.Module):
         an optimizer object for the critic
     action_noise : ddpgfd.core.training_utils.ActionNoise
         Gaussian action noise object, for exploration purposes
+    ewc : ddpgfd.core.training_utils.EWC or None
+        Elastic Weight Consolidation component
     """
 
     def __init__(self, conf, device, state_dim, action_dim):
@@ -54,7 +58,7 @@ class DDPGfDAgent(nn.Module):
 
         Parameters
         ----------
-        conf : object
+        conf : Any
             full configuration parameters
         device : torch.device
             context-manager that changes the selected device.
@@ -70,6 +74,7 @@ class DDPGfDAgent(nn.Module):
         self.device = device
         self.state_dim = state_dim
         self.action_dim = action_dim
+        self.logger = logging.getLogger('DDPGfD')
 
         # Create the actor base and target networks.
         self.actor_b = ActorNet(state_dim, action_dim, device)
@@ -111,6 +116,9 @@ class DDPGfDAgent(nn.Module):
         self.action_noise = GaussianActionNoise(
             std=self.agent_conf.action_noise_std, ac_dim=action_dim)
 
+        # Elastic Weight Consolidation component
+        self.ewc = None
+
     def _set_optimizer(self):
         """Create the optimizer objects."""
         # Create actor optimizer.
@@ -124,6 +132,75 @@ class DDPGfDAgent(nn.Module):
             self.critic_b.parameters(),
             lr=self.conf.train_config.lr_rate,
             weight_decay=self.conf.train_config.w_decay)
+
+    def initialize(self):
+        """Initialize the agent.
+
+        This method performs the following tasks:
+
+        1. It loads initial demonstration data from a predefined path.
+        2. It loads the weights/biases of the agent from a predefined path.
+        3. It initializes the EWC component if weights are to be adjusted to
+           minimize catastrophic forgetting.
+        4. It pretrains the initial policy for a number of steps on any
+           imported initial demonstration data.
+        """
+        # =================================================================== #
+        #                       Load demonstration data                       #
+        # =================================================================== #
+
+        if self.conf.demo_config.load_demo_data:
+            pass  # TODO
+
+        # =================================================================== #
+        #                         Load initial policy                         #
+        # =================================================================== #
+
+        if self.agent_conf.pretrain_path != "":
+            # Load initial policy parameters.
+            self.load(progress_path=self.agent_conf.pretrain_path,
+                      epoch=self.agent_conf.pretrain_epoch)
+
+            self.logger.info(
+                'Loaded policy from progress path {} and epoch {}.'.format(
+                    self.agent_conf.pretrain_path,
+                    self.agent_conf.pretrain_epoch))
+
+        # =================================================================== #
+        #                    Elastic Weight Consolidation                     #
+        # =================================================================== #
+
+        if self.agent_conf.ewc_lambda > 0:
+            # Make sure demonstration data and an initial policy were loaded.
+            assert self.conf.demo_config.load_demo_data
+            assert self.agent_conf.pretrain_path != ""
+
+            # Create initial dataset of states.
+            dataset = self.memory.get_states()
+
+            # Initialize Elastic Weight Consolidation component.
+            self.ewc = EWC(model=self.actor_b, dataset=dataset)
+
+            self.logger.info('Create EWC with lambda: {}'.format(
+                self.agent_conf.ewc_lambda))
+
+        # =================================================================== #
+        #                    Pretraining on demonstrations                    #
+        # =================================================================== #
+
+        if self.conf.train_config.pretrain_step > 0:
+            # Make sure demonstration data was loaded.
+            assert self.conf.demo_config.load_demo_data
+
+            # Set the agent in training mode.
+            self.agent.train()
+
+            # Perform training on demonstration data.
+            for t in range(self.conf.train_config.pretrain_step):
+                self.agent.update_agent(t)
+
+            self.logger.info('Pretrained policy for {} steps.'.format(
+                self.conf.train_config.pretrain_step))
 
     @staticmethod
     def obs2tensor(state):
@@ -221,6 +298,11 @@ class DDPGfDAgent(nn.Module):
                 q_act = self.critic_b.Q1(
                     torch.cat((batch_s, self.actor_b(batch_s)), dim=1))
                 actor_loss = -q_act.mean()
+
+                # Add EWC loss.
+                ewc_lambda = self.agent_conf.ewc_lambda
+                if ewc_lambda > 0:
+                    actor_loss += ewc_lambda * self.penalty(self.actor_b)
 
                 # Optimize the actor.
                 self.optimizer_actor.zero_grad()

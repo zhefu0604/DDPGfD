@@ -266,7 +266,6 @@ class ReplayBuffer(object):
         idxes = self.rs.randint(0, self.cur_sz - 1, batch_size)
         return self._encode_sample(idxes)
 
-
 class PrioritizedReplayBuffer(ReplayBuffer):
 
     def __init__(self, size, seed, alpha, beta_init=0.4, beta_inc_n=2000):
@@ -383,3 +382,12 @@ class PrioritizedReplayBuffer(ReplayBuffer):
             self._it_min[idx] = priority ** self._alpha
 
             self._max_priority = max(self._max_priority, priority)
+
+    def get_states(self):
+        """Return a list of the all states in the buffer."""
+        # Get states in pytorch format.
+        states, _, _, _, _, _ = self._encode_sample(list(range(self.cur_sz)))
+
+        # Return in numpy array format.
+        print(states.cpu().detach().numpy())
+        return states.cpu().detach().numpy()
