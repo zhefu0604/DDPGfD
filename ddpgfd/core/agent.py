@@ -45,10 +45,6 @@ class DDPGfDAgent(nn.Module):
         an optimizer object for the actor
     optimizer_critic : torch.optim.Adam
         an optimizer object for the critic
-    scheduler_actor : TODO
-        TODO
-    scheduler_critic : TODO
-        TODO
     action_noise : ddpgfd.core.training_utils.ActionNoise
         Gaussian action noise object, for exploration purposes
     """
@@ -102,8 +98,6 @@ class DDPGfDAgent(nn.Module):
         # Crate optimizer.
         self.optimizer_actor = None
         self.optimizer_critic = None
-        # self.scheduler_actor = None
-        # self.scheduler_critic = None
         self._set_optimizer()
 
         # loss function setting
@@ -130,16 +124,6 @@ class DDPGfDAgent(nn.Module):
             self.critic_b.parameters(),
             lr=self.conf.train_config.lr_rate,
             weight_decay=self.conf.train_config.w_decay)
-
-        # # Create the actor scheduler.
-        # self.scheduler_actor = torch.optim.lr_scheduler.StepLR(
-        #     self.optimizer_actor,
-        #     step_size=3000, gamma=0.95)
-        #
-        # # Create the actor scheduler.
-        # self.scheduler_critic = torch.optim.lr_scheduler.StepLR(
-        #     self.optimizer_critic,
-        #     step_size=3000, gamma=0.95)
 
     @staticmethod
     def obs2tensor(state):
@@ -184,10 +168,6 @@ class DDPGfDAgent(nn.Module):
         batch_sz = 0
         not_done = 1.  # TODO
         if self.memory.ready():
-            # # Step the schedulers.
-            # self.scheduler_actor.step()
-            # self.scheduler_critic.step()
-
             # Sample a batch of data.
             (batch_s, batch_a, batch_r, batch_s2, batch_gamma,
              batch_flags), weights, idxes = self.memory.sample(
@@ -304,7 +284,8 @@ class DDPGfDAgent(nn.Module):
         self.critic_t.load_state_dict(self.restore_model_weight(
             progress_path, epoch, prefix='critic_t'))
 
-    def _save_model_weight(self, model, progress_path, epoch, prefix=''):
+    @staticmethod
+    def _save_model_weight(model, progress_path, epoch, prefix=''):
         """Save a model's parameters is a specified path.
 
         Parameters
