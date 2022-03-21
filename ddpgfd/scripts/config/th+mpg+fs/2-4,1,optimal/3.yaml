@@ -54,7 +54,7 @@ demo_config:
   demo_dir: './demo/optimal/th24+mpg1+fs'
   # whether demonstrations were collected from a random action distribution. In
   # this case, demos are not stored permanently
-  random: true
+  random: false
 
 env_config:
   # minimum desirable time headway
