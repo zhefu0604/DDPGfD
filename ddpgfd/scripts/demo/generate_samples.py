@@ -8,7 +8,7 @@ import pandas as pd
 # number of backward timesteps to add to observation
 N_STEPS = 5
 # headway scaling term
-HEADWAY_SCALE = 200.
+HEADWAY_SCALE = 100.
 # speed scaling term
 SPEED_SCALE = 40.
 

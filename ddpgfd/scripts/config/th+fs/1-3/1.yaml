@@ -9,7 +9,7 @@ train_config:
   # Adam weight decay
   w_decay: 0
   # total training episodes
-  n_episode: 1000
+  n_episode: 250
   # training batch size from replay
   batch_size: 256
   # number of environment steps per policy update

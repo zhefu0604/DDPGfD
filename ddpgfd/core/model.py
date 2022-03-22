@@ -42,10 +42,10 @@ class ActorNet(nn.Module):
 
         # Create the network.
         self.net = nn.Sequential(
-            nn.Linear(in_dim, HIDDEN_LAYERS, bias=False),
+            nn.Linear(in_dim, HIDDEN_LAYERS),
             nn.Dropout(0.5),
             nn.ReLU(),
-            nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS, bias=False),
+            nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS),
             nn.Dropout(0.5),
             nn.ReLU(),
             nn.Linear(HIDDEN_LAYERS, out_dim),
@@ -58,7 +58,6 @@ class ActorNet(nn.Module):
                 init_fanin(x.weight)
             if i == 7:
                 nn.init.uniform_(x.weight, -3e-3, 3e-3)
-                nn.init.uniform_(x.bias, -3e-3, 3e-3)
 
     def forward(self, state):
         """Run a forward pass of the actor.
@@ -108,17 +107,17 @@ class CriticNet(nn.Module):
 
         # Create the network.
         self.q1 = nn.Sequential(
-            nn.Linear(in_dim, HIDDEN_LAYERS, bias=False),
+            nn.Linear(in_dim, HIDDEN_LAYERS),
             nn.ReLU(),
-            nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS, bias=False),
+            nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS),
             nn.ReLU(),
             nn.Linear(HIDDEN_LAYERS, 1),
         )
 
         self.q2 = nn.Sequential(
-            nn.Linear(in_dim, HIDDEN_LAYERS, bias=False),
+            nn.Linear(in_dim, HIDDEN_LAYERS),
             nn.ReLU(),
-            nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS, bias=False),
+            nn.Linear(HIDDEN_LAYERS, HIDDEN_LAYERS),
             nn.ReLU(),
             nn.Linear(HIDDEN_LAYERS, 1),
         )
@@ -129,14 +128,12 @@ class CriticNet(nn.Module):
                 init_fanin(x.weight)
             if i == 5:
                 nn.init.uniform_(x.weight, -3e-3, 3e-3)
-                nn.init.uniform_(x.bias, -3e-3, 3e-3)
 
         for i, x in enumerate(self.q2.modules()):
             if i in [1, 3]:
                 init_fanin(x.weight)
             if i == 5:
                 nn.init.uniform_(x.weight, -3e-3, 3e-3)
-                nn.init.uniform_(x.bias, -3e-3, 3e-3)
 
     def forward(self, sa_pairs):
         """Run a forward pass of the critic.
