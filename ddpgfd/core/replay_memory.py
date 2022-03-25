@@ -385,9 +385,5 @@ class PrioritizedReplayBuffer(ReplayBuffer):
 
     def get_states(self):
         """Return a list of the all states in the buffer."""
-        # Get states in pytorch format.
         states, _, _, _, _, _ = self._encode_sample(list(range(self.cur_sz)))
-
-        # Return in numpy array format.
-        print(states.cpu().detach().numpy())
-        return states.cpu().detach().numpy()
+        return states

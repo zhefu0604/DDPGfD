@@ -44,9 +44,9 @@ agent_config:
   const_min_priority: 0.001
   # path to the initial policy. If set to a value other than "", the initial
   # policy from this path/epoch is loaded at the start of training.
-  pretrain_path: ""
+  pretrain_path: ""  # "result/th/4/"
   # the epoch to use whether loading a policy from pretrain_path
-  pretrain_epoch: 1
+  pretrain_epoch: 40
   # the weighting term for the Elastic Weight Consolidation penalty
   ewc_lambda: 0
 

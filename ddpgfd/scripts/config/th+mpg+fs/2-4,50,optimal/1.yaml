@@ -9,11 +9,11 @@ train_config:
   # Adam weight decay
   w_decay: 0
   # total training episodes
-  n_episode: 1000
+  n_episode: 3000
   # training batch size from replay
   batch_size: 256
   # number of environment steps per policy update
-  update_step: 10
+  update_step: 1
   # whether to use MSE loss for the Q function. If set to false, a huber loss
   # is used instead.
   mse_loss: false
@@ -44,9 +44,9 @@ agent_config:
   const_min_priority: 0.001
   # path to the initial policy. If set to a value other than "", the initial
   # policy from this path/epoch is loaded at the start of training.
-  pretrain_path: ""
+  pretrain_path: ""  # "result/th/1/"
   # the epoch to use whether loading a policy from pretrain_path
-  pretrain_epoch: 1
+  pretrain_epoch: 45
   # the weighting term for the Elastic Weight Consolidation penalty
   ewc_lambda: 0
 

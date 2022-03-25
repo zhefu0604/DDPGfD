@@ -5,6 +5,8 @@ import pickle
 import numpy as np
 import pandas as pd
 
+from trajectory.env.energy_models import PFM2019RAV4
+
 # number of backward timesteps to add to observation
 N_STEPS = 5
 # headway scaling term
@@ -54,7 +56,8 @@ def reward_fn(headway,
               speed,
               leader_speed,
               instant_energy_consumption,
-              t):
+              t,
+              energy_model):
     """Compute the reward at a specific time index.
 
     Parameters
@@ -80,12 +83,12 @@ def reward_fn(headway,
     scale = 0.1
     low = 2
     high = 4
-    energy_steps = 100
+    energy_steps = 5
     reward = 0.
 
+    # time headway reward
     th = max(min((headway[t] / max(speed[t], 1e-10)), 20), 0)
 
-    # time headway reward
     if th < low:
         reward -= huber_loss(th - low, delta=1.00)
     elif th > high:
@@ -95,9 +98,19 @@ def reward_fn(headway,
     reward -= (accel[t] - realized_accel[t]) ** 2
 
     # energy consumption reward
-    reward -= np.mean(np.clip(
-        instant_energy_consumption[max(t-energy_steps, 0): t+1],
-        a_min=0, a_max=np.inf))
+    sum_energy = sum(
+        energy_model.get_instantaneous_fuel_consumption(
+            speed_i, max(accel_i, 0), 0)
+        for speed_i, accel_i in zip(speed[max(t-energy_steps, 0): t+1],
+                                    accel[max(t-energy_steps, 0): t+1]))
+    # sum_energy = sum(np.clip(
+    #     instant_energy_consumption[max(t-energy_steps, 0): t+1],
+    #     a_min=0, a_max=np.inf))
+    sum_speed = sum(np.clip(
+        speed[max(t-energy_steps, 0): t+1],
+        a_min=0.1, a_max=np.inf))
+
+    reward -= 10. * sum_energy / sum_speed
 
     return scale * reward
 
@@ -183,6 +196,7 @@ def main(args):
     df = pd.read_csv(flags.infile)
 
     av_ids = [x for x in np.unique(df.id) if "av" in x]
+    energy_model = PFM2019RAV4()
 
     data = []
     for av_id in av_ids:
@@ -233,6 +247,7 @@ def main(args):
                 leader_speed,
                 instant_energy_consumption,
                 t,
+                energy_model,
             )
 
             # Convert data to correct format.

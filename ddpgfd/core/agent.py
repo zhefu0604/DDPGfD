@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import logging
+import os
 
 from ddpgfd.core.model import ActorNet
 from ddpgfd.core.model import CriticNet
@@ -157,9 +158,18 @@ class DDPGfDAgent(nn.Module):
         # =================================================================== #
 
         if self.agent_conf.pretrain_path != "":
-            # Load initial policy parameters.
-            self.load(progress_path=self.agent_conf.pretrain_path,
-                      epoch=self.agent_conf.pretrain_epoch)
+            progress_path = self.agent_conf.pretrain_path
+            epoch = self.agent_conf.pretrain_epoch
+
+            # Load initial actor policy parameters.
+            self.actor_b.load_state_dict(self._restore_model_weight(
+                progress_path, epoch, prefix='actor_b'))
+            self.actor_t.load_state_dict(self._restore_model_weight(
+                progress_path, epoch, prefix='actor_t'))
+            # self.critic_b.load_state_dict(self._restore_model_weight(
+            #     progress_path, epoch, prefix='critic_b'))
+            # self.critic_t.load_state_dict(self._restore_model_weight(
+            #     progress_path, epoch, prefix='critic_t'))
 
             self.logger.info(
                 'Loaded policy from progress path {} and epoch {}.'.format(
@@ -302,7 +312,8 @@ class DDPGfDAgent(nn.Module):
                 # Add EWC loss.
                 ewc_lambda = self.agent_conf.ewc_lambda
                 if ewc_lambda > 0:
-                    actor_loss += ewc_lambda * self.penalty(self.actor_b)
+                    actor_loss += ewc_lambda * self.ewc.penalty(self.actor_b)
+
 
                 # Optimize the actor.
                 self.optimizer_actor.zero_grad()
@@ -357,13 +368,13 @@ class DDPGfDAgent(nn.Module):
         epoch : int
             the training epoch to collect model parameters from
         """
-        self.actor_b.load_state_dict(self.restore_model_weight(
+        self.actor_b.load_state_dict(self._restore_model_weight(
             progress_path, epoch, prefix='actor_b'))
-        self.actor_t.load_state_dict(self.restore_model_weight(
+        self.actor_t.load_state_dict(self._restore_model_weight(
             progress_path, epoch, prefix='actor_t'))
-        self.critic_b.load_state_dict(self.restore_model_weight(
+        self.critic_b.load_state_dict(self._restore_model_weight(
             progress_path, epoch, prefix='critic_b'))
-        self.critic_t.load_state_dict(self.restore_model_weight(
+        self.critic_t.load_state_dict(self._restore_model_weight(
             progress_path, epoch, prefix='critic_t'))
 
     @staticmethod
@@ -392,5 +403,9 @@ class DDPGfDAgent(nn.Module):
         prefix : str
             an auxiliary string specifying the type of model
         """
-        name = progress_path + prefix + 'model-' + str(epoch) + '.tp'
-        return torch.load(name, map_location=self.device)
+        name = os.path.join(
+            progress_path,
+            "model-params",
+            prefix + 'model-' + str(epoch) + '.tp')
+        print(name)
+        return torch.load(name)

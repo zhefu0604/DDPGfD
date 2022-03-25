@@ -107,13 +107,13 @@ class RLTrainer(object):
             state_dim=self.env.observation_space.shape[0],
             action_dim=self.env.action_space.shape[0],
         )
-        self.agent.to(self.device)
 
         # Initialize replay buffer with demonstrations.
         self.demo2memory()  # TODO: move to agent class
 
         # Initialize the agent class.  TODO: move to __init__
         self.agent.initialize()
+        self.agent.to(self.device)
 
         # init
         self.episode = 1
