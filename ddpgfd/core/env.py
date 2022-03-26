@@ -118,7 +118,7 @@ class TrajectoryEnv(gym.Env):
                     'dataset/data_v2_preprocessed_west/{}/'
                     'trajectory.csv'.format(fp)
                 ),
-                'lane_changing': False,
+                'lane_changing': True,
             }
             env_config.update(conf)
 

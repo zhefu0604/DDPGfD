@@ -313,10 +313,11 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         self._it_sum[idx] = self._max_priority ** self._alpha
         self._it_min[idx] = self._max_priority ** self._alpha
 
-    def _sample_proportional(self, batch_size):
+    def _sample_proportional(self, batch_size, cur_sz=None):
         """Sample a batch of data based on priorities."""
         res = []
-        p_total = self._it_sum.sum(0, self.cur_sz - 1)
+        cur_sz = cur_sz or self.cur_sz
+        p_total = self._it_sum.sum(0, cur_sz - 1)
         every_range_len = p_total / batch_size
         for i in range(batch_size):
             mass = self.rs.uniform(0, 1) * every_range_len \
@@ -325,7 +326,7 @@ class PrioritizedReplayBuffer(ReplayBuffer):
             res.append(idx)
         return res
 
-    def sample(self, batch_size):
+    def sample(self, batch_size, cur_sz=None):
         """Sample a batch of experiences.
 
         Compared to ReplayBuffer.sample, it also returns importance weights and
@@ -346,7 +347,7 @@ class PrioritizedReplayBuffer(ReplayBuffer):
             of sampled experiences
         """
         batch_size = min(self.cur_sz, batch_size)
-        idxes = self._sample_proportional(batch_size)
+        idxes = self._sample_proportional(batch_size, cur_sz)
 
         weights = []
         p_min = self._it_min.min() / self._it_sum.sum()

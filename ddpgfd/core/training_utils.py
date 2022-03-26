@@ -12,6 +12,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.autograd import Variable
 import torch.utils.data
+import tqdm
 from copy import deepcopy
 
 
@@ -130,12 +131,6 @@ class OrnsteinUhlenbeckActionNoise(ActionNoise):
         self.x_prev = self.x0 or np.zeros_like(self.mu)
 
 
-def variable(t, use_cuda=True, **kwargs):
-    if torch.cuda.is_available() and use_cuda:
-        t = t.cuda()
-    return Variable(t, **kwargs)
-
-
 class EWC(object):
     """TODO."""
 
@@ -155,28 +150,58 @@ class EWC(object):
         self.params = {n: p for n, p in self.model.named_parameters() if
                        p.requires_grad}
         self._means = {}
-        self._precision_matrices = self._diag_fisher()
+        # self._precision_matrices = self._diag_fisher()
 
         for n, p in deepcopy(self.params).items():
-            self._means[n] = variable(p.data)
+            self._means[n] = Variable(p.data)
+
+    def estimate_fisher(self, dataset, sample_size, batch_size=32):
+        # sample loglikelihoods from the dataset.
+        data_loader = utils.get_data_loader(dataset, batch_size)
+        loglikelihoods = []
+        for x, y in data_loader:
+            x = x.view(batch_size, -1)
+            x = Variable(x)
+            y = Variable(y)
+            loglikelihoods.append(
+                F.log_softmax(self.model(x), dim=1)[range(batch_size), y.data]
+            )
+            if len(loglikelihoods) >= sample_size // batch_size:
+                break
+        # estimate the fisher information of the parameters.
+        loglikelihoods = torch.cat(loglikelihoods).unbind()
+        loglikelihood_grads = zip(*[autograd.grad(
+            l, self.parameters(),
+            retain_graph=(i < len(loglikelihoods))
+        ) for i, l in enumerate(loglikelihoods, 1)])
+        loglikelihood_grads = [torch.stack(gs) for gs in loglikelihood_grads]
+        fisher_diagonals = [(g ** 2).mean(0) for g in loglikelihood_grads]
+        param_names = [
+            n.replace('.', '__') for n, p in self.named_parameters()
+        ]
+        return {n: f.detach() for n, f in zip(param_names, fisher_diagonals)}
 
     def _diag_fisher(self):
         """TODO."""
         precision_matrices = {}
         for n, p in deepcopy(self.params).items():
             p.data.zero_()
-            precision_matrices[n] = variable(p.data)
+            precision_matrices[n] = Variable(p.data)
 
         self.model.eval()
-        for x in self.dataset:
+        for x in tqdm.tqdm(self.dataset):
             self.model.zero_grad()
-            x = variable(x)
-            output = self.model(x).view(1, -1)
+            x = Variable(x)
+            output = self.model(x)
+            print(output)
             label = output.max(1)[1].view(-1)
+            print(label)
             loss = F.nll_loss(F.log_softmax(output, dim=1), label)
-            loss.backward()
+            from torch import autograd
+            # loss.backward()
 
             for n, p in self.model.named_parameters():
+                print(np.sum(autograd.grad(loss, p)[0].detach().numpy()))
                 precision_matrices[n].data += p.grad.data ** 2 / len(
                     self.dataset)
 
@@ -187,7 +212,8 @@ class EWC(object):
         """TODO."""
         loss = 0
         for n, p in model.named_parameters():
-            _loss = self._precision_matrices[n] * (p - self._means[n]) ** 2
+            # _loss = self._precision_matrices[n] * (p - self._means[n]) ** 2
+            _loss = (p - self._means[n]) ** 2
             loss += _loss.sum()
         return loss
 

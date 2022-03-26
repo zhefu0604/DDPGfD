@@ -81,13 +81,14 @@ def reward_fn(headway,
         the reward
     """
     scale = 0.1
-    low = 2
-    high = 4
+    low = 0.5
+    high = 12
     energy_steps = 5
     reward = 0.
 
     # time headway reward
-    th = max(min((headway[t] / max(speed[t], 1e-10)), 20), 0)
+    # th = min((headway[t] + 5.) / 10., 30)
+    th = min(headway[t] / 10., 30)
 
     if th < low:
         reward -= huber_loss(th - low, delta=1.00)
@@ -100,17 +101,14 @@ def reward_fn(headway,
     # energy consumption reward
     sum_energy = sum(
         energy_model.get_instantaneous_fuel_consumption(
-            speed_i, max(accel_i, 0), 0)
+            speed_i, accel_i, 0)
         for speed_i, accel_i in zip(speed[max(t-energy_steps, 0): t+1],
                                     accel[max(t-energy_steps, 0): t+1]))
-    # sum_energy = sum(np.clip(
-    #     instant_energy_consumption[max(t-energy_steps, 0): t+1],
-    #     a_min=0, a_max=np.inf))
-    sum_speed = sum(np.clip(
-        speed[max(t-energy_steps, 0): t+1],
-        a_min=0.1, a_max=np.inf))
 
-    reward -= 10. * sum_energy / sum_speed
+    sum_speed = sum(np.clip(
+        speed[max(t-energy_steps, 0): t+1], a_min=0.1, a_max=np.inf))
+
+    reward -= sum_energy / sum_speed
 
     return scale * reward
 
@@ -154,6 +152,7 @@ def obs(headway,
         list((leader_speed[min_t: max_t]-speed[min_t: max_t]) / SPEED_SCALE) +
         [0.] * n_missed +
         list(headway[min_t: max_t] / HEADWAY_SCALE))
+        # list((headway[min_t: max_t] + 5.) / HEADWAY_SCALE))
 
 
 def action(headway,

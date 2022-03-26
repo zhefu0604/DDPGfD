@@ -106,12 +106,15 @@ class DDPGfDAgent(nn.Module):
         self.optimizer_critic = None
         self._set_optimizer()
 
-        # loss function setting
+        # Q-function loss
         reduction = 'none'
         if self.conf.train_config.mse_loss:
             self.q_criterion = nn.MSELoss(reduction=reduction)
         else:
             self.q_criterion = nn.SmoothL1Loss(reduction=reduction)
+
+        # imitation loss
+        self.il_criterion = nn.MSELoss(reduction=reduction)
 
         # exploration noise
         self.action_noise = GaussianActionNoise(
@@ -166,10 +169,6 @@ class DDPGfDAgent(nn.Module):
                 progress_path, epoch, prefix='actor_b'))
             self.actor_t.load_state_dict(self._restore_model_weight(
                 progress_path, epoch, prefix='actor_t'))
-            # self.critic_b.load_state_dict(self._restore_model_weight(
-            #     progress_path, epoch, prefix='critic_b'))
-            # self.critic_t.load_state_dict(self._restore_model_weight(
-            #     progress_path, epoch, prefix='critic_t'))
 
             self.logger.info(
                 'Loaded policy from progress path {} and epoch {}.'.format(
@@ -230,7 +229,7 @@ class DDPGfDAgent(nn.Module):
                 self.agent_conf.tau * src_param.data
                 + (1.0 - self.agent_conf.tau) * tgt_param.data)
 
-    def update_agent(self, update_step):
+    def update_agent(self, update_step, expert_size):
         """Sample experience and update.
 
         Parameters
@@ -314,6 +313,17 @@ class DDPGfDAgent(nn.Module):
                 if ewc_lambda > 0:
                     actor_loss += ewc_lambda * self.ewc.penalty(self.actor_b)
 
+                # il_lambda = self.agent_conf.il_lambda
+                il_lambda = 0
+                if il_lambda > 0:
+                    # Sample expert states/actions.
+                    (exprt_s, exprt_a, _, _, _, _), _, _ = self.memory.sample(
+                        self.conf.train_config.batch_size,
+                        cur_sz=expert_size)
+
+                    # Add imitation loss.
+                    actor_loss = il_lambda * self.il_criterion(
+                        exprt_a, self.actor_b(exprt_s)).mean()
 
                 # Optimize the actor.
                 self.optimizer_actor.zero_grad()
