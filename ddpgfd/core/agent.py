@@ -314,7 +314,7 @@ class DDPGfDAgent(nn.Module):
                     actor_loss += ewc_lambda * self.ewc.penalty(self.actor_b)
 
                 # il_lambda = self.agent_conf.il_lambda
-                il_lambda = 0
+                il_lambda = -1
                 if il_lambda > 0:
                     # Sample expert states/actions.
                     (exprt_s, exprt_a, _, _, _, _), _, _ = self.memory.sample(
@@ -322,7 +322,7 @@ class DDPGfDAgent(nn.Module):
                         cur_sz=expert_size)
 
                     # Add imitation loss.
-                    actor_loss = il_lambda * self.il_criterion(
+                    actor_loss += il_lambda * self.il_criterion(
                         exprt_a, self.actor_b(exprt_s)).mean()
 
                 # Optimize the actor.
@@ -417,5 +417,4 @@ class DDPGfDAgent(nn.Module):
             progress_path,
             "model-params",
             prefix + 'model-' + str(epoch) + '.tp')
-        print(name)
         return torch.load(name)

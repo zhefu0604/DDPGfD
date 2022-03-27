@@ -82,8 +82,8 @@ def reward_fn(headway,
     """
     scale = 0.1
     low = 0.5
-    high = 12
-    energy_steps = 5
+    high = 13
+    energy_steps = 50
     reward = 0.
 
     # time headway reward
@@ -96,7 +96,7 @@ def reward_fn(headway,
         reward -= huber_loss(th - high, delta=0.25)
 
     # failsafe reward
-    reward -= (accel[t] - realized_accel[t]) ** 2
+    # reward -= (accel[t] - realized_accel[t]) ** 2
 
     # energy consumption reward
     sum_energy = sum(

@@ -43,7 +43,7 @@ class TrajectoryEnv(gym.Env):
             "2021-03-18-12-42-14_2T3MWRFVXLW056972_masterArray_1_3918",
             "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_0_4223",
             "2021-03-22-22-23-58_2T3MWRFVXLW056972_masterArray_1_4422",
-            # Arwa said this trajectory might has sensor malfunction issue
+            # Arwa said this trajectory might have sensor malfunction issue
             # "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_0_4331",
             "2021-03-23-21-50-02_2T3MWRFVXLW056972_masterArray_1_3778",
             # used for dashboard testing

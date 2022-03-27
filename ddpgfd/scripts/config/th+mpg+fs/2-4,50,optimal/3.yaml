@@ -9,7 +9,7 @@ train_config:
   # Adam weight decay
   w_decay: 0
   # total training episodes
-  n_episode: 1500
+  n_episode: 1000
   # training batch size from replay
   batch_size: 256
   # number of environment steps per policy update
@@ -63,7 +63,7 @@ env_config:
   # minimum desirable time headway
   th_min: 0.5
   # maximum desirable time headway
-  th_max: 12
+  th_max: 13
   # whether to use the energy reward
   use_energy: true
   # number of timesteps to average the energy reward across

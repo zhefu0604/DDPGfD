@@ -115,12 +115,6 @@ class RLTrainer(object):
             self.expert_size = self.demo2memory(
                 dconf.demo_dir, optimal=not dconf.random)  # TODO: move to agent class
 
-            # TODO: delete
-            if not dconf.random:
-                random_dir = deepcopy(dconf.demo_dir)
-                random_dir.replace("optimal", "random")
-                self.demo2memory(random_dir, optimal=False)
-
         # Initialize the agent class.  TODO: move to __init__
         self.agent.initialize()
         self.agent.to(self.device)

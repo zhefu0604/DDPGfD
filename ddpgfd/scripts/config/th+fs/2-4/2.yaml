@@ -63,7 +63,7 @@ env_config:
   # minimum desirable time headway
   th_min: 0.5
   # maximum desirable time headway
-  th_max: 12
+  th_max: 13
   # whether to use the energy reward
   use_energy: false
   # number of timesteps to average the energy reward across
