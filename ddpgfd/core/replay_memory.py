@@ -116,7 +116,7 @@ class SegmentTree(object):
 
 
 class SumSegmentTree(SegmentTree):
-    """TODO."""
+    """Sum segment tree."""
 
     def __init__(self, capacity):
         """Instantiate the object.
@@ -165,7 +165,7 @@ class SumSegmentTree(SegmentTree):
 
 
 class MinSegmentTree(SegmentTree):
-    """TODO."""
+    """Minimum segment tree."""
 
     def __init__(self, capacity):
         """Instantiate the object.
@@ -187,6 +187,7 @@ class MinSegmentTree(SegmentTree):
 
 
 class ReplayBuffer(object):
+    """Base replay buffer object."""
 
     def __init__(self, size, seed=None):
         """Create Replay buffer.
@@ -206,11 +207,11 @@ class ReplayBuffer(object):
         self._rewards = np.empty(size, dtype=object)
 
     def set_protect_size(self, protect_size):
-        """keep first protect_size items, for keeping demonstration data."""
+        """Keep first protect_size items, for keeping demonstration data."""
         self.protect_idx = protect_size-1
 
     def __len__(self):
-        """Returns the number of samples in the buffer."""
+        """Return the number of samples in the buffer."""
         return self.cur_sz
 
     def add(self, experience):
@@ -266,7 +267,9 @@ class ReplayBuffer(object):
         idxes = self.rs.randint(0, self.cur_sz - 1, batch_size)
         return self._encode_sample(idxes)
 
+
 class PrioritizedReplayBuffer(ReplayBuffer):
+    """Prioritized replay buffer object."""
 
     def __init__(self, size, seed, alpha, beta_init=0.4, beta_inc_n=2000):
         """Create Prioritized Replay buffer.

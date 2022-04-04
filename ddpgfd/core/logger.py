@@ -89,7 +89,7 @@ class ColorStreamHandler(logging.StreamHandler):
 
 
 def logger_setup(log_file, loggers, level):
-    """TODO."""
+    """Create and setup loggers for use during training."""
     global logger_is_setup, console_handler, file_handler
     if logger_is_setup:
         print('Logger Already Setup, Check your code')

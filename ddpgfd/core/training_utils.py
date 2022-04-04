@@ -7,11 +7,8 @@ import prodict
 import yaml
 import logging
 from shutil import copy2
-import torch
-from torch import nn
 from torch.nn import functional as F
 from torch.autograd import Variable
-import torch.utils.data
 import tqdm
 from copy import deepcopy
 
@@ -46,18 +43,12 @@ class ActionNoise(object):
 
 
 class GaussianActionNoise(ActionNoise):
-    """Gaussian action noise.
-
-    Attributes
-    ----------
-    std : float
-        standard deviation of Gaussian noise
-    """
+    """Gaussian action noise."""
 
     def __init__(self, std, ac_dim=1):
         """Instantiate the noise object.
 
-        Attributes
+        Parameters
         ----------
         std : float
             standard deviation of Gaussian noise
@@ -75,43 +66,13 @@ class GaussianActionNoise(ActionNoise):
 
 
 class OrnsteinUhlenbeckActionNoise(ActionNoise):
-    """Ornstein-Uhlenbeck action noise.
-
-    Attributes
-    ----------
-    theta : array_like
-        TODO
-    mu : array_like
-        TODO
-    sigma : TODO
-        TODO
-    dt : float
-        TODO
-    x0 : array_like
-        TODO
-    x_prev : array_like
-        TODO
-    """
+    """Ornstein-Uhlenbeck action noise."""
 
     def __init__(self, mu, sigma, theta=.15, dt=1e-2, x0=None):
-        """Instantiate the noise object.
-
-        Attributes
-        ----------
-        theta : array_like
-            TODO
-        mu : array_like
-            TODO
-        sigma : TODO
-            TODO
-        dt : float
-            TODO
-        x0 : array_like or None
-            TODO
-        """
-        self.theta = theta
+        """Instantiate the noise object."""
         self.mu = mu
         self.sigma = sigma
+        self.theta = theta
         self.dt = dt
         self.x0 = x0
         self.x_prev = None
@@ -132,10 +93,13 @@ class OrnsteinUhlenbeckActionNoise(ActionNoise):
 
 
 class EWC(object):
-    """TODO."""
+    """Elastic Weight Consolidation module.
+
+    See: https://www.pnas.org/doi/10.1073/pnas.1611835114
+    """
 
     def __init__(self, model, dataset):
-        """TODO.
+        """Instantiate the EWC module.
 
         Parameters
         ----------
@@ -155,34 +119,8 @@ class EWC(object):
         for n, p in deepcopy(self.params).items():
             self._means[n] = Variable(p.data)
 
-    def estimate_fisher(self, dataset, sample_size, batch_size=32):
-        # sample loglikelihoods from the dataset.
-        data_loader = utils.get_data_loader(dataset, batch_size)
-        loglikelihoods = []
-        for x, y in data_loader:
-            x = x.view(batch_size, -1)
-            x = Variable(x)
-            y = Variable(y)
-            loglikelihoods.append(
-                F.log_softmax(self.model(x), dim=1)[range(batch_size), y.data]
-            )
-            if len(loglikelihoods) >= sample_size // batch_size:
-                break
-        # estimate the fisher information of the parameters.
-        loglikelihoods = torch.cat(loglikelihoods).unbind()
-        loglikelihood_grads = zip(*[autograd.grad(
-            l, self.parameters(),
-            retain_graph=(i < len(loglikelihoods))
-        ) for i, l in enumerate(loglikelihoods, 1)])
-        loglikelihood_grads = [torch.stack(gs) for gs in loglikelihood_grads]
-        fisher_diagonals = [(g ** 2).mean(0) for g in loglikelihood_grads]
-        param_names = [
-            n.replace('.', '__') for n, p in self.named_parameters()
-        ]
-        return {n: f.detach() for n, f in zip(param_names, fisher_diagonals)}
-
     def _diag_fisher(self):
-        """TODO."""
+        """Compute the diagonal fisher information matrix of the model."""
         precision_matrices = {}
         for n, p in deepcopy(self.params).items():
             p.data.zero_()
@@ -209,7 +147,7 @@ class EWC(object):
         return precision_matrices
 
     def penalty(self, model):
-        """TODO."""
+        """Return the EWC penalty for the current model."""
         loss = 0
         for n, p in model.named_parameters():
             # _loss = self._precision_matrices[n] * (p - self._means[n]) ** 2
@@ -219,21 +157,7 @@ class EWC(object):
 
 
 class TrainingProgress(object):
-    """TODO.
-
-    Attributes
-    ----------
-    result_path : str
-        TODO
-    progress_path : str
-        TODO
-    meta_dict : dict
-        TODO
-    record_dict : str
-        TODO
-    logger : object
-        a logger object
-    """
+    """A logger for training progress."""
 
     def __init__(self,
                  result_path,
@@ -244,24 +168,20 @@ class TrainingProgress(object):
                  restore=False):
         """Instantiate the object.
 
-        Header => Filename header,append file name behind
-        Data Dict => Appendable data (loss,time,acc....)
-        Meta Dict => One time data (config,weight,.....)
-
         Parameters
         ----------
         result_path : str
-            TODO
+            the higher-level path to save data in
         folder_name : str
-            TODO
+            the name of the folder to save data in
         tp_step : int or None
-            TODO
+            the training epoch
         meta_dict : dict or None
-            TODO
+            One time data (config,weight,.....)
         record_dict : dict or None
-            TODO
+            Appendable data (loss,time,acc....)
         restore : bool
-            TODO
+            whether to restore previous data
         """
         self.result_path = os.path.join(result_path, folder_name) + "/"
         self.progress_path = os.path.join(
@@ -292,18 +212,18 @@ class TrainingProgress(object):
             return None
 
     def record_step(self, epoch, prefix, new_dict, display=False):
-        """TODO.
+        """Record new training parameters.
 
         Parameters
         ----------
         epoch : int
             the current training epoch
         prefix : str
-            TODO
+            a prefix to add to the file name
         new_dict : dict
-            TODO
+            dictionary of parameters to log
         display : bool
-            TODO
+            whether to print to terminal once the operation is complete
         """
         # record every epoch, prefix=train/test/validation....
         key = prefix + str(epoch)
@@ -321,14 +241,15 @@ class TrainingProgress(object):
             self.logger.info(key + ': ' + str_display)
 
     def save_progress(self, tp_step, override_path=None):
-        """TODO.
+        """Save the meta and record dict for the current epoch.
 
         Parameters
         ----------
         tp_step : int
-            TODO
+            the training epoch to save data to
         override_path : str or None
-            TODO
+            the path to save data tp. If set to None, the epoch is used to
+            estimate the path
         """
         name = self.progress_path + str(tp_step) + '.tpdata' \
             if override_path is None else override_path
@@ -342,9 +263,10 @@ class TrainingProgress(object):
         Parameters
         ----------
         tp_step : int
-            TODO
+            the training epoch to restore data from
         override_path : str or None
-            TODO
+            the path to restore data from. If set to None, the epoch is used to
+            estimate the path
         """
         name = self.progress_path + str(tp_step) + '.tpdata' \
             if override_path is None else override_path
@@ -364,16 +286,16 @@ class TrainingProgress(object):
         self.logger.info('Backup ' + src)
         copy2(src, self.result_path + file_name)
 
-    def save_conf(self, dict, prefix=''):
+    def save_conf(self, new_dict, prefix=''):
         """Save training parameters in a conf.yaml file.
 
         Parameters
         ----------
-        dict : dict
+        new_dict : dict
             dictionary of training parameters
         prefix : str
             a prefix to add to the file name
         """
         path = self.result_path + prefix + 'conf.yaml'
         with open(path, 'w') as outfile:
-            yaml.dump(dict, outfile)
+            yaml.dump(new_dict, outfile)

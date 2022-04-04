@@ -13,12 +13,9 @@ import argparse
 import torch
 import numpy as np
 import logging
-import pickle
-from copy import deepcopy
 from collections import deque
 from ddpgfd.core.agent import DDPGfDAgent
 from ddpgfd.core.agent import DATA_RUNTIME
-from ddpgfd.core.agent import DATA_DEMO
 from ddpgfd.core.env import TrajectoryEnv
 from ddpgfd.core.logger import logger_setup
 from ddpgfd.core.training_utils import TrainingProgress
@@ -35,7 +32,7 @@ class RLTrainer(object):
     conf : object
         training configuration parameters
     tp : ddpgfd.core.training_utils.TrainingProgress
-        TODO
+        a logger for training progress
     logger : object
         an object used for logging purposes
     device : torch.device
@@ -109,13 +106,7 @@ class RLTrainer(object):
             action_dim=self.env.action_space.shape[0],
         )
 
-        # Initialize replay buffer with demonstrations.
-        dconf = self.full_conf.demo_config
-        if dconf.load_demo_data:
-            self.expert_size = self.demo2memory(
-                dconf.demo_dir, optimal=not dconf.random)  # TODO: move to agent class
-
-        # Initialize the agent class.  TODO: move to __init__
+        # Initialize the replay buffer and model parameters.
         self.agent.initialize()
         self.agent.to(self.device)
 
@@ -152,45 +143,6 @@ class RLTrainer(object):
 
         self.logger.info('Config name ' + self.conf.exp_name)
         self.logger.info('Progress Saved, current epoch={}'.format(self.epoch))
-
-    def demo2memory(self, demo_dir, optimal):  # TODO: move to agent class
-        """Import demonstration from pkl files to the replay buffer."""
-        filenames = [x for x in os.listdir(demo_dir) if x.endswith(".pkl")]
-
-        for ix, f_idx in enumerate(filenames):
-            fname = os.path.join(demo_dir, f_idx)
-            with open(fname, 'rb') as f:
-                data = pickle.load(f)
-            for i in range(len(data)):
-                # Extract demonstration.
-                s, a, r, s2 = data[i]
-
-                # Convert to be pytorch compatible.
-                s_tensor = torch.from_numpy(s).float()
-                s2_tensor = torch.from_numpy(s2).float()
-                action = torch.from_numpy(a).float()
-
-                # Add one-step to memory.
-                self.agent.memory.add((
-                    s_tensor,
-                    action,
-                    torch.tensor([r]).float(),
-                    s2_tensor,
-                    torch.tensor([self.agent.agent_conf.gamma]),
-                    DATA_DEMO))
-
-            self.logger.info(
-                '{} Demo Trajectories Loaded. Total Experience={}'.format(
-                    ix + 1, len(self.agent.memory)))
-
-        # Prevent demonstrations from being deleted.
-        if optimal:
-            expert_size = len(self.agent.memory)
-            self.agent.memory.set_protect_size(expert_size)
-        else:
-            expert_size = 0
-
-        return expert_size
 
     def train(self):
         """Perform end-to-end training procedure."""
@@ -257,9 +209,8 @@ class RLTrainer(object):
 
                 # Perform policy update.
                 if self.steps % self.conf.update_step == 0:
-                    q, a, d, b = self.agent.update_agent(
-                        self.steps // self.conf.update_step,
-                        expert_size=self.expert_size)
+                    update_step = self.steps // self.conf.update_step
+                    q, a, d, b = self.agent.update_agent(update_step)
 
                     epoch_actor_loss.append(a)
                     epoch_critic_loss.append(q)

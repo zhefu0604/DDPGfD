@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import logging
 import os
+import pickle
 
 from ddpgfd.core.model import ActorNet
 from ddpgfd.core.model import CriticNet
@@ -114,6 +115,7 @@ class DDPGfDAgent(nn.Module):
             self.q_criterion = nn.SmoothL1Loss(reduction=reduction)
 
         # imitation loss
+        self.expert_size = None
         self.il_criterion = nn.MSELoss(reduction=reduction)
 
         # exploration noise
@@ -153,8 +155,10 @@ class DDPGfDAgent(nn.Module):
         #                       Load demonstration data                       #
         # =================================================================== #
 
-        if self.conf.demo_config.load_demo_data:
-            pass  # TODO
+        dconf = self.conf.demo_config
+        if dconf.load_demo_data:
+            self.expert_size = self.demo2memory(
+                dconf.demo_dir, optimal=not dconf.random)
 
         # =================================================================== #
         #                         Load initial policy                         #
@@ -211,6 +215,45 @@ class DDPGfDAgent(nn.Module):
             self.logger.info('Pretrained policy for {} steps.'.format(
                 self.conf.train_config.pretrain_step))
 
+    def demo2memory(self, demo_dir, optimal):
+        """Import demonstration from pkl files to the replay buffer."""
+        filenames = [x for x in os.listdir(demo_dir) if x.endswith(".pkl")]
+
+        for ix, f_idx in enumerate(filenames):
+            fname = os.path.join(demo_dir, f_idx)
+            with open(fname, 'rb') as f:
+                data = pickle.load(f)
+            for i in range(len(data)):
+                # Extract demonstration.
+                s, a, r, s2 = data[i]
+
+                # Convert to be pytorch compatible.
+                s_tensor = torch.from_numpy(s).float()
+                s2_tensor = torch.from_numpy(s2).float()
+                action = torch.from_numpy(a).float()
+
+                # Add one-step to memory.
+                self.memory.add((
+                    s_tensor,
+                    action,
+                    torch.tensor([r]).float(),
+                    s2_tensor,
+                    torch.tensor([self.agent_conf.gamma]),
+                    DATA_DEMO))
+
+            self.logger.info(
+                '{} Demo Trajectories Loaded. Total Experience={}'.format(
+                    ix + 1, len(self.memory)))
+
+        # Prevent demonstrations from being deleted.
+        if optimal:
+            expert_size = len(self.memory)
+            self.memory.set_protect_size(expert_size)
+        else:
+            expert_size = 0
+
+        return expert_size
+
     @staticmethod
     def obs2tensor(state):
         """Convert observations to a torch-compatible format."""
@@ -229,7 +272,7 @@ class DDPGfDAgent(nn.Module):
                 self.agent_conf.tau * src_param.data
                 + (1.0 - self.agent_conf.tau) * tgt_param.data)
 
-    def update_agent(self, update_step, expert_size):
+    def update_agent(self, update_step):
         """Sample experience and update.
 
         Parameters
@@ -313,13 +356,12 @@ class DDPGfDAgent(nn.Module):
                 if ewc_lambda > 0:
                     actor_loss += ewc_lambda * self.ewc.penalty(self.actor_b)
 
-                # il_lambda = self.agent_conf.il_lambda
-                il_lambda = -1
+                il_lambda = self.agent_conf.il_lambda
                 if il_lambda > 0:
                     # Sample expert states/actions.
                     (exprt_s, exprt_a, _, _, _, _), _, _ = self.memory.sample(
                         self.conf.train_config.batch_size,
-                        cur_sz=expert_size)
+                        cur_sz=self.expert_size)
 
                     # Add imitation loss.
                     actor_loss += il_lambda * self.il_criterion(
@@ -403,8 +445,9 @@ class DDPGfDAgent(nn.Module):
         name = progress_path + prefix + 'model-' + str(epoch) + '.tp'
         torch.save(model.state_dict(), name)
 
-    def _restore_model_weight(self, progress_path, epoch, prefix=''):
-        """Restor a model's parameters from a specified path.
+    @staticmethod
+    def _restore_model_weight(progress_path, epoch, prefix=''):
+        """Restore a model's parameters from a specified path.
 
         Parameters
         ----------
