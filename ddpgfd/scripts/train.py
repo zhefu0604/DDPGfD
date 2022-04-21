@@ -273,7 +273,6 @@ class RLTrainer(object):
 
         combined_stats = {
             # Rollout statistics.
-            'rollout/episodes': self.epoch_episodes,
             'rollout/episode_steps': np.mean(self.epoch_episode_steps),
             'rollout/return': np.mean(self.epoch_episode_rewards),
             'rollout/return_history': np.mean(self.episode_rew_history),
@@ -293,8 +292,15 @@ class RLTrainer(object):
 
         # Information passed by the environment.
         for key in self.info_at_done[0].keys():
+            if key != "mpg":
+                continue
             combined_stats['info_at_done/{}'.format(key)] = np.mean([
                 x[key] for x in self.info_at_done])
+
+        for key in self.info_at_done[0].keys():
+            combined_stats['rollout/{}'.format(key)] = np.mean([
+                x[key]
+                for x in list(self.info_at_done)[-self.conf.save_every:]])
 
         # Save combined_stats in a csv file.
         file_path = os.path.join(self.tp.result_path, "train.csv")

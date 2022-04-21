@@ -1,9 +1,9 @@
 ---
 train_config:
   # random seed
-  seed: 5
+  seed: 3
   # experiment name, for logging purposes
-  exp_name: 'th+mpg5-random-5'
+  exp_name: 'th+mpg-optimal-3'
   # learning rate
   lr_rate: 0.0003
   # Adam weight decay
@@ -44,9 +44,9 @@ agent_config:
   const_min_priority: 0.001
   # path to the initial policy. If set to a value other than "", the initial
   # policy from this path/epoch is loaded at the start of training.
-  pretrain_path: ""  # "result/th/5/"
+  pretrain_path: ""  # "result/th/3/"
   # the epoch to use whether loading a policy from pretrain_path
-  pretrain_epoch: 49
+  pretrain_epoch: 40
   # the weighting term for the Elastic Weight Consolidation penalty
   ewc_lambda: 0
   # the weighting term for the imitation penalty
@@ -56,18 +56,18 @@ demo_config:
   # whether to load demonstration data
   load_demo_data: true
   # folder containing demonstration pkl files
-  demo_dir: './demo/random/th+mpg5'
+  demo_dir: './demo/optimal/th+mpg'
   # whether demonstrations were collected from a random action distribution. In
   # this case, demos are not stored permanently
-  random: true
+  random: false
 
 env_config:
   # minimum desirable space headway. If set to -1, no penalty is applied.
   h_min: -1
   # maximum desirable space headway. If set to -1, no penalty is applied.
-  h_max: 150
+  h_max: 100
   # minimum desirable time headway. If set to -1, no penalty is applied.
-  th_min: 2.0
+  th_min: 1.0
   # maximum desirable time headway. If set to -1, no penalty is applied.
   th_max: -1
   # whether to use the energy reward

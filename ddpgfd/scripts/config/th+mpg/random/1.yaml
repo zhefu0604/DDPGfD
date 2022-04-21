@@ -1,17 +1,17 @@
 ---
 train_config:
   # random seed
-  seed: 5
+  seed: 1
   # experiment name, for logging purposes
-  exp_name: 'th+mpg5-optimal-5'
+  exp_name: 'th+mpg-random-1'
   # learning rate
   lr_rate: 0.0003
   # Adam weight decay
   w_decay: 0
   # total training episodes
-  n_episode: 1000
+  n_episode: 2000
   # training batch size from replay
-  batch_size: 256
+  batch_size: 64
   # number of environment steps per policy update
   update_step: 10
   # whether to use MSE loss for the Q function. If set to false, a huber loss
@@ -33,7 +33,7 @@ agent_config:
   # reward discount
   gamma: 0.99
   # number of samples in the replay buffer
-  replay_buffer_size: 500000
+  replay_buffer_size: 200000
   # continuous update, source network portion, per actor update step
   tau: 0.005
   # standard deviation for Gaussian action noise
@@ -44,9 +44,9 @@ agent_config:
   const_min_priority: 0.001
   # path to the initial policy. If set to a value other than "", the initial
   # policy from this path/epoch is loaded at the start of training.
-  pretrain_path: ""  # "result/th/5/"
+  pretrain_path: ""  # "result/th/1/"
   # the epoch to use whether loading a policy from pretrain_path
-  pretrain_epoch: 49
+  pretrain_epoch: 45
   # the weighting term for the Elastic Weight Consolidation penalty
   ewc_lambda: 0
   # the weighting term for the imitation penalty
@@ -56,21 +56,21 @@ demo_config:
   # whether to load demonstration data
   load_demo_data: true
   # folder containing demonstration pkl files
-  demo_dir: './demo/optimal/th+mpg5'
+  demo_dir: './demo/random/th+accel/300/n=4'
   # whether demonstrations were collected from a random action distribution. In
   # this case, demos are not stored permanently
-  random: false
+  random: true
 
 env_config:
   # minimum desirable space headway. If set to -1, no penalty is applied.
   h_min: -1
   # maximum desirable space headway. If set to -1, no penalty is applied.
-  h_max: 150
+  h_max: 300
   # minimum desirable time headway. If set to -1, no penalty is applied.
-  th_min: 2.0
+  th_min: 1.0
   # maximum desirable time headway. If set to -1, no penalty is applied.
   th_max: -1
   # whether to use the energy reward
   use_energy: true
   # number of timesteps to average the energy reward across
-  energy_steps: 5
+  energy_steps: 1

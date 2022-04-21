@@ -136,8 +136,7 @@ class DDPGfDAgent(nn.Module):
         # Create critic optimizer.
         self.optimizer_critic = torch.optim.Adam(
             self.critic_b.parameters(),
-            lr=self.conf.train_config.lr_rate,
-            weight_decay=self.conf.train_config.w_decay)
+            lr=self.conf.train_config.lr_rate)
 
     def initialize(self):
         """Initialize the agent.
@@ -224,6 +223,10 @@ class DDPGfDAgent(nn.Module):
             with open(fname, 'rb') as f:
                 data = pickle.load(f)
             for i in range(len(data)):
+                # TODO
+                if i % 5 != 0:
+                    continue
+
                 # Extract demonstration.
                 s, a, r, s2 = data[i]
 
@@ -295,7 +298,6 @@ class DDPGfDAgent(nn.Module):
         losses_actor = []
         demo_cnt = []
         batch_sz = 0
-        not_done = 1.  # TODO
         if self.memory.ready():
             # Sample a batch of data.
             (batch_s, batch_a, batch_r, batch_s2, batch_gamma,
@@ -323,7 +325,7 @@ class DDPGfDAgent(nn.Module):
                 target_q1, target_q2 = self.critic_t(
                     torch.cat((batch_s2, next_action), dim=1))
                 target_q = torch.min(target_q1, target_q2)
-                target_q = batch_r + not_done * batch_gamma * target_q
+                target_q = batch_r + batch_gamma * target_q
 
             # Get current Q estimates
             q1, q2 = self.critic_b(torch.cat((batch_s, batch_a), dim=1))

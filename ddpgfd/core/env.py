@@ -5,12 +5,14 @@ import gym
 import trajectory.config as config
 from gym.envs.registration import register
 
+# TODO
+N_DOWNSTREAM = 4
 # simulation update steps per action assignment
 SIMS_PER_STEP = 1
 # whether to use all trajectories or those with min speeds below some cutoff
-ALL_ENVS = True
+ALL_ENVS = False
 # minimum cutoff speed for that a (full) trajectory should have during training
-MIN_SPEED = 25
+MIN_SPEED = 22
 # the names of all valid trajectories for training purposes
 FILENAMES = [
     "2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_0_4597",
@@ -159,7 +161,7 @@ class TrajectoryEnv(gym.Env):
                     'dataset/data_v2_preprocessed_west/{}/'
                     'trajectory.csv'.format(FILENAMES[i])
                 ),
-                'lane_changing': False,
+                'lane_changing': True,
             }
             env_config.update(conf)
 
@@ -196,7 +198,12 @@ class TrajectoryEnv(gym.Env):
             self.current_env.step(action)
 
         # Return after the final step.
-        return self.current_env.step(action)
+        obs, rew, done, info = self.current_env.step(action)
+
+        # done = done or any(
+        #     av.get_headway() > 500 for av in self.current_env.avs)
+
+        return obs, rew, done, info
 
     def reset(self):
         """Reset the environment.
@@ -221,7 +228,9 @@ class TrajectoryEnv(gym.Env):
     def observation_space(self):
         """Return the observation space."""
         return gym.spaces.Box(
-            low=-float("inf"), high=float("inf"), shape=(15,))
+            low=-float("inf"),
+            high=float("inf"),
+            shape=(15 + 2 * N_DOWNSTREAM,))
 
     @property
     def action_space(self):

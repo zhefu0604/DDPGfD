@@ -9,9 +9,9 @@ train_config:
   # Adam weight decay
   w_decay: 0
   # total training episodes
-  n_episode: 1000
+  n_episode: 250
   # training batch size from replay
-  batch_size: 256
+  batch_size: 64
   # number of environment steps per policy update
   update_step: 10
   # whether to use MSE loss for the Q function. If set to false, a huber loss
@@ -33,7 +33,7 @@ agent_config:
   # reward discount
   gamma: 0.99
   # number of samples in the replay buffer
-  replay_buffer_size: 500000
+  replay_buffer_size: 200000
   # continuous update, source network portion, per actor update step
   tau: 0.005
   # standard deviation for Gaussian action noise
@@ -65,9 +65,9 @@ env_config:
   # minimum desirable space headway. If set to -1, no penalty is applied.
   h_min: -1
   # maximum desirable space headway. If set to -1, no penalty is applied.
-  h_max: 150
+  h_max: 100
   # minimum desirable time headway. If set to -1, no penalty is applied.
-  th_min: 2.0
+  th_min: 1.0
   # maximum desirable time headway. If set to -1, no penalty is applied.
   th_max: -1
   # whether to use the energy reward
