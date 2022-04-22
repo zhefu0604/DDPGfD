@@ -1,40 +1,26 @@
-"""Script containing the DDPGfD agent class."""
+"""Script containing the fcnet variant of the DDPGfD agent."""
 import numpy as np
 import torch
 import torch.nn as nn
-import logging
 import os
 import pickle
 
+from ddpgfd.agents.base import DDPGfDAgent
+from ddpgfd.agents.base import DATA_DEMO
 from ddpgfd.core.model import ActorNet
 from ddpgfd.core.model import CriticNet
 from ddpgfd.core.replay_memory import PrioritizedReplayBuffer
 from ddpgfd.core.training_utils import EWC
 from ddpgfd.core.training_utils import GaussianActionNoise
 
-# constant signifying that data was collected from a demonstration
-DATA_DEMO = 0
-# constant signifying that data was collected during training
-DATA_RUNTIME = 1
 
-
-class DDPGfDAgent(nn.Module):
+class FeedForwardAgent(DDPGfDAgent):
     """DDPG from Demonstration agent class.
 
     See: https://arxiv.org/pdf/1707.08817.pdf
 
     Attributes
     ----------
-    conf : Any
-        full configuration parameters
-    agent_conf : Any
-        agent configuration parameters
-    device : torch.device
-        context-manager that changes the selected device.
-    state_dim : int
-        number of elements in the state space
-    action_dim : int
-        number of elements in the action space
     actor_b : ddpgfd.core.model.ActorNet
         base actor network
     actor_t : ddpgfd.core.model.ActorNet
@@ -69,14 +55,12 @@ class DDPGfDAgent(nn.Module):
         action_dim : int
             number of elements in the action space
         """
-        super(DDPGfDAgent, self).__init__()
-
-        self.conf = conf
-        self.agent_conf = self.conf.agent_config
-        self.device = device
-        self.state_dim = state_dim
-        self.action_dim = action_dim
-        self.logger = logging.getLogger('DDPGfD')
+        super(FeedForwardAgent, self).__init__(
+            conf=conf,
+            device=device,
+            state_dim=state_dim,
+            action_dim=action_dim,
+        )
 
         # Create the actor base and target networks.
         self.actor_b = ActorNet(state_dim, action_dim, device)
@@ -205,14 +189,34 @@ class DDPGfDAgent(nn.Module):
             assert self.conf.demo_config.load_demo_data
 
             # Set the agent in training mode.
-            self.agent.train()
+            self.train()
 
             # Perform training on demonstration data.
             for t in range(self.conf.train_config.pretrain_step):
-                self.agent.update_agent(t)
+                self.update_agent(t)
 
             self.logger.info('Pretrained policy for {} steps.'.format(
                 self.conf.train_config.pretrain_step))
+
+    def reset(self):
+        """See parent class."""
+        self.action_noise.reset()
+
+    def get_action(self, s_tensor, n_agents):
+        """See parent class."""
+        # Compute noisy actions by the policy.
+        action = [
+            torch.clip(
+                self.actor_b(s_tensor[i].to(self.device)[None])[0] +
+                torch.from_numpy(self.action_noise()).float(),
+                min=-0.99, max=0.99,
+            ) for i in range(n_agents)]
+
+        return [act.numpy() for act in action]
+
+    def add_memory(self, s, a, s2, r, gamma, dtype):
+        """See parent class"""
+        self.memory.add((s, a, r, s2, gamma, dtype))
 
     def demo2memory(self, demo_dir, optimal):
         """Import demonstration from pkl files to the replay buffer."""
@@ -258,11 +262,6 @@ class DDPGfDAgent(nn.Module):
         return expert_size
 
     @staticmethod
-    def obs2tensor(state):
-        """Convert observations to a torch-compatible format."""
-        return torch.from_numpy(state).float()
-
-    @staticmethod
     def init_target(src, tgt):
         """Initialize target policy parameters."""
         for src_param, tgt_param in zip(src.parameters(), tgt.parameters()):
@@ -276,24 +275,7 @@ class DDPGfDAgent(nn.Module):
                 + (1.0 - self.agent_conf.tau) * tgt_param.data)
 
     def update_agent(self, update_step):
-        """Sample experience and update.
-
-        Parameters
-        ----------
-        update_step : int
-            number of policy updates to perform
-
-        Returns
-        -------
-        float
-            critic loss
-        float
-            actor loss
-        int
-            the number of demonstration in the training batches
-        int
-            the total number of samples in the training batches
-        """
+        """See parent class."""
         losses_critic = []
         losses_actor = []
         demo_cnt = []

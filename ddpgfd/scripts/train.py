@@ -14,8 +14,8 @@ import torch
 import numpy as np
 import logging
 from collections import deque
-from ddpgfd.core.agent import DDPGfDAgent
-from ddpgfd.core.agent import DATA_RUNTIME
+from ddpgfd.agents.base import DATA_RUNTIME
+from ddpgfd.agents.fcnet import FeedForwardAgent
 from ddpgfd.core.env import TrajectoryEnv
 from ddpgfd.core.logger import logger_setup
 from ddpgfd.core.training_utils import TrainingProgress
@@ -39,7 +39,7 @@ class RLTrainer(object):
         context-manager that changes the selected device.
     env : ddpgfd.core.env.TrajectoryEnv
         the training environment
-    agent : ddpgfd.core.agent.DDPGfDAgent
+    agent : ddpgfd.agents.base.DDPGfDAgent
         the training agent
     episode : int
         number of rollouts so far
@@ -99,7 +99,7 @@ class RLTrainer(object):
         self.logger.info('Environment Loaded')
 
         # Create the agent class.
-        self.agent = DDPGfDAgent(
+        self.agent = FeedForwardAgent(
             conf=self.full_conf,
             device=self.device,
             state_dim=self.env.observation_space.shape[0],
@@ -164,7 +164,7 @@ class RLTrainer(object):
             n_agents = len(s0)
 
             # Reset action noise.
-            self.agent.action_noise.reset()
+            self.agent.reset()
 
             done = False
             info = {}
@@ -173,32 +173,28 @@ class RLTrainer(object):
             while not done:
                 with torch.no_grad():
                     # Compute noisy actions by the policy.
-                    action = [
-                        torch.clip(
-                            self.agent.actor_b(s_tensor[i].to(
-                                self.device)[None])[0] +
-                            torch.from_numpy(
-                                self.agent.action_noise()).float(),
-                            min=-0.99,
-                            max=0.99,
-                        ) for i in range(n_agents)]
-                    action_lst.extend([act.numpy() for act in action])
+                    ac = self.agent.get_action(s_tensor, n_agents)
+                    action_lst.extend(ac)
 
                     # Run environment step.
-                    s2, r, done, info = self.env.step([
-                        a.numpy() for a in action])
+                    s2, r, done, info = self.env.step(ac)
 
                     # Add one-step to memory.
                     s2_tensor = [
                         self.agent.obs2tensor(s2[i]) for i in range(n_agents)]
+                    ac_tensor = [
+                        self.agent.obs2tensor(ac[i]) for i in range(n_agents)]
+                    gamma_tensor = torch.tensor([
+                        self.full_conf.agent_config.gamma])
                     for i in range(n_agents):
-                        self.agent.memory.add((
-                            s_tensor[i],
-                            action[i],
-                            torch.tensor([r[i]]).float(),
-                            s2_tensor[i],
-                            torch.tensor([self.agent.agent_conf.gamma]),
-                            DATA_RUNTIME))
+                        self.agent.add_memory(
+                            s=s_tensor[i],
+                            a=ac_tensor[i],
+                            r=torch.tensor([r[i]]).float(),
+                            s2=s2_tensor[i],
+                            gamma=gamma_tensor,
+                            dtype=DATA_RUNTIME,
+                        )
 
                     s_tensor = s2_tensor
 
