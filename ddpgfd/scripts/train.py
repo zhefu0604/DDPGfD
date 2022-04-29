@@ -13,6 +13,7 @@ import argparse
 import torch
 import numpy as np
 import logging
+from copy import deepcopy
 from collections import deque
 from ddpgfd.agents.base import DATA_RUNTIME
 from ddpgfd.agents.fcnet import FeedForwardAgent
@@ -105,9 +106,6 @@ class RLTrainer(object):
             state_dim=self.env.observation_space.shape[0],
             action_dim=self.env.action_space.shape[0],
         )
-
-        # Initialize the replay buffer and model parameters.
-        self.agent.initialize()
         self.agent.to(self.device)
 
         # init
@@ -160,43 +158,34 @@ class RLTrainer(object):
             eps_length = 0
 
             # Reset the environment.
-            s0 = self.env.reset()
-            n_agents = len(s0)
+            s = self.env.reset()
 
             # Reset action noise.
             self.agent.reset()
 
             done = False
             info = {}
-            s_tensor = [self.agent.obs2tensor(s0[i]) for i in range(n_agents)]
             action_lst = []
             while not done:
                 with torch.no_grad():
                     # Compute noisy actions by the policy.
-                    ac = self.agent.get_action(s_tensor, n_agents)
+                    ac = self.agent.get_action(s)
                     action_lst.extend(ac)
 
                     # Run environment step.
                     s2, r, done, info = self.env.step(ac)
 
                     # Add one-step to memory.
-                    s2_tensor = [
-                        self.agent.obs2tensor(s2[i]) for i in range(n_agents)]
-                    ac_tensor = [
-                        self.agent.obs2tensor(ac[i]) for i in range(n_agents)]
-                    gamma_tensor = torch.tensor([
-                        self.full_conf.agent_config.gamma])
-                    for i in range(n_agents):
-                        self.agent.add_memory(
-                            s=s_tensor[i],
-                            a=ac_tensor[i],
-                            r=torch.tensor([r[i]]).float(),
-                            s2=s2_tensor[i],
-                            gamma=gamma_tensor,
-                            dtype=DATA_RUNTIME,
-                        )
+                    self.agent.add_memory(
+                        s=s,
+                        a=ac,
+                        r=r,
+                        s2=s2,
+                        gamma=self.full_conf.agent_config.gamma,
+                        dtype=DATA_RUNTIME,
+                    )
 
-                    s_tensor = s2_tensor
+                    s = deepcopy(s2)
 
                 # Record episodic statistics.
                 self.steps += 1
