@@ -10,7 +10,6 @@ file_handler = None
 
 
 def fileno(file_or_fd):
-    """TODO."""
     fd = getattr(file_or_fd, 'fileno', lambda: file_or_fd)()
     if not isinstance(fd, int):
         raise ValueError("Expected a file (`.fileno()`) or a file descriptor")

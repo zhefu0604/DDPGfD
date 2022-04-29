@@ -31,9 +31,9 @@ agent_config:
   # updated every training step
   policy_freq: 2
   # reward discount
-  gamma: 0.99
+  gamma: 0.999
   # number of samples in the replay buffer
-  replay_buffer_size: 200000
+  replay_buffer_size: 500000
   # continuous update, source network portion, per actor update step
   tau: 0.005
   # standard deviation for Gaussian action noise
@@ -65,9 +65,9 @@ env_config:
   # minimum desirable space headway. If set to -1, no penalty is applied.
   h_min: -1
   # maximum desirable space headway. If set to -1, no penalty is applied.
-  h_max: 100
+  h_max: 150
   # minimum desirable time headway. If set to -1, no penalty is applied.
-  th_min: 1.0
+  th_min: 1.5
   # maximum desirable time headway. If set to -1, no penalty is applied.
   th_max: -1
   # whether to use the energy reward
