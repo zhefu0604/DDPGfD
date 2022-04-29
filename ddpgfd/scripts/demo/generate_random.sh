@@ -117,3 +117,26 @@ OUTFILE=("2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_0_4597"
 for index in "${!INFILE[@]}"; do
   python generate_samples.py "random/emissions/${INFILE[$index]}/emissions/emissions_1.csv" "random/${OUTFILE[$index]}.pkl"
 done
+
+declare -a directories=(
+             '2021-04-16-12-34-41_2T3MWRFVXLW056972_masterArray_0_5778'
+             '2021-03-08-22-35-14_2T3MWRFVXLW056972_masterArray_1_4927'
+             '2021-03-24-21-34-31_2T3MWRFVXLW056972_masterArray_0_4937'
+             '2021-04-22-12-47-13_2T3MWRFVXLW056972_masterArray_1_5292'
+             '2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_0_6825'
+             '2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_1_11342'
+             '2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_1_6483'
+             '2021-03-09-13-35-04_2T3MWRFVXLW056972_masterArray_1_4938'
+             '2021-03-17-21-37-10_2T3MWRFVXLW056972_masterArray_0_4463'
+             '2021-04-12-21-34-57_2T3MWRFVXLW056972_masterArray_0_4796'
+             '2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_0_11294'
+             '2021-04-19-12-27-33_2T3MWRFVXLW056972_masterArray_0_16467'
+             '2021-04-07-12-33-03_2T3MWRFVXLW056972_masterArray_1_6116'
+             '2021-03-29-12-47-15_2T3MWRFVXLW056972_masterArray_0_5016'
+             '2021-03-12-22-20-57_2T3MWRFVXLW056972_masterArray_0_5672'
+             '2021-04-27-21-37-32_2T3MWRFVXLW056972_masterArray_0_3836'
+             '2021-03-15-12-46-38_2T3MWRFVXLW056972_masterArray_0_4917')
+
+for index in "${!directories[@]}"; do
+  cp "random/${OUTFILE[$index]}.pkl" "random/th+mpg/${OUTFILE[$index]}.pkl"
+done

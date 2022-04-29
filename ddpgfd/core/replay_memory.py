@@ -271,7 +271,7 @@ class ReplayBuffer(object):
 class PrioritizedReplayBuffer(ReplayBuffer):
     """Prioritized replay buffer object."""
 
-    def __init__(self, size, seed, alpha, beta_init=0.4, beta_inc_n=2000):
+    def __init__(self, size, seed, alpha=0.3, beta_init=1.0, beta_inc_n=1000):
         """Create Prioritized Replay buffer.
 
         Parameters

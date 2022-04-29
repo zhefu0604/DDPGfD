@@ -4,15 +4,57 @@ import argparse
 import pickle
 import numpy as np
 import pandas as pd
+import bisect
+import os
+import json
 
 from trajectory.env.energy_models import PFMCompactSedan
+
+
+# =========================================================================== #
+#                           observation parameters                            #
+# =========================================================================== #
 
 # number of backward timesteps to add to observation
 N_STEPS = 5
 # headway scaling term
-HEADWAY_SCALE = 100.
+HEADWAY_SCALE = 200.
 # speed scaling term
 SPEED_SCALE = 40.
+# time discretization
+DT = 0.1
+# number of downstream edges to be sensed
+N_DOWNSTREAM = 4
+# scaling term for distances to downstream edges
+DISTANCE_SCALE = 1610.
+
+
+# =========================================================================== #
+#                              action parameters                              #
+# =========================================================================== #
+
+# scaling term for the actions (so that values range from -1 to 1)
+ACTION_SCALE = 1.
+
+
+# =========================================================================== #
+#                         reward function parameters                          #
+# =========================================================================== #
+
+# scaling term for the rewards
+REWARD_SCALE = 0.1
+# minimum desirable space headway. If set to -1, no penalty is applied.
+H_LOW = -1
+# maximum desirable space headway. If set to -1, no penalty is applied.
+H_HIGH = 150
+# minimum desirable time headway. If set to -1, no penalty is applied.
+TH_LOW = 1.5
+# maximum desirable time headway. If set to -1, no penalty is applied.
+TH_HIGH = -1
+# number of timesteps to average the energy reward across
+ENERGY_STEPS = 1
+# maximum magnitude of accelerations after which penalties are incurred
+MAX_ACCEL = 0.25
 
 
 def parse_args(args):
@@ -26,7 +68,47 @@ def parse_args(args):
     parser.add_argument(
         'outfile', type=str, help='the path to save the demonstrations in')
 
+    parser.add_argument(
+        '--downstream_path',
+        type=str,
+        default=None,
+        help='the path to the folder containing trajectory information')
+
     return parser.parse_args(args)
+
+
+def get_leader_avg_speed(segments, avg_speed, times, pos, t, n):
+    """Return a list of relevant macroscopic data.
+
+    Parameters
+    ----------
+    segments : array_like
+        the starting position of every whose macroscopic state is estimated
+    avg_speed : array_like
+        the most recent average speed of every segment
+    times : array_like
+        the times when each traffic state estimate was taken
+    pos : array_like
+        list of vehicle positions over time
+    t : float
+        current time, in seconds
+    n : int
+        number of downstream edges to be sensed
+
+    Returns
+    -------
+    list of float
+        downstream segment distances and average speeds
+    """
+    if n == 0:
+        return []
+
+    t_index = bisect.bisect(times, t) - 1
+    x_index = bisect.bisect(segments, pos)
+
+    return list(
+        avg_speed[t_index, x_index:x_index + n] / SPEED_SCALE) + list(
+        (np.array(segments[x_index:x_index + n]) - pos) / DISTANCE_SCALE)
 
 
 def huber_loss(a, delta=1.0):
@@ -50,8 +132,7 @@ def huber_loss(a, delta=1.0):
         return delta * (abs(a) - 0.5 * delta)
 
 
-def reward_fn(headway, accel, realized_accel, speed, leader_speed, t,
-              energy_model):
+def reward_fn(headway, accel, realized_accel, speed, t, energy_model):
     """Compute the reward at a specific time index.
 
     Parameters
@@ -64,8 +145,6 @@ def reward_fn(headway, accel, realized_accel, speed, leader_speed, t,
         list of realized vehicle accelerations over time
     speed : array_like
         list of vehicle speed over time
-    leader_speed : array_like
-        list of vehicle lead speeds over time
     t : int
         the time index
     energy_model : any
@@ -77,65 +156,69 @@ def reward_fn(headway, accel, realized_accel, speed, leader_speed, t,
         the reward
     """
     reward = 0.
-
-    # reward function parameters
-    scale = 0.1
-    h_low = -1
-    h_high = 150
-    th_low = 2.0
-    th_high = -1
-    energy_steps = 50
+    # reward = 0.001 * speed[t]
 
     # time headway reward
     th = min(headway[t] / max(speed[t], 0.01), 20)
-    if th_low > 0 and th < th_low:
-        reward -= 2 * huber_loss(th - th_low, delta=1.00)
-    if th_high > 0 and th > th_high:
-        reward -= huber_loss(th - th_high, delta=0.25)
+    if TH_LOW > 0 and th < TH_LOW:
+        reward -= 2 * 0.1 * huber_loss(th - TH_LOW, delta=1.00)
+    if TH_HIGH > 0 and th > TH_HIGH:
+        reward -= huber_loss(th - TH_HIGH, delta=0.25)
 
     # space headway reward
-    h = min(headway[t], 300)
-    if h_low > 0 and h < h_low:
-        reward -= 2 * huber_loss((h - h_low) / 10., delta=1.00)
-    if h_high > 0 and h > h_high:
-        reward -= huber_loss((h - h_high) / 10., delta=0.25)
+    h = headway[t]
+    if H_LOW > 0 and h < H_LOW:
+        reward -= 2 * huber_loss((h - H_LOW) / 10., delta=1.00)
+    if H_HIGH > 0 and h > H_HIGH:
+        reward -= 0.1 * huber_loss((h - H_HIGH) / 10., delta=0.25)
 
-    # acceleration reward
-    # reward -= 0.1 * realized_accel[t] ** 2
-
-    # failsafe reward
-    # reward -= (accel[t] - realized_accel[t]) ** 2
+    # # acceleration reward
+    # a = realized_accel[t]
+    # if a > MAX_ACCEL:
+    #     reward -= 0.1 * (a - MAX_ACCEL) ** 2
+    # if a < -MAX_ACCEL:
+    #     reward -= 0.1 * (a + MAX_ACCEL) ** 2
+    #
+    # # failsafe reward
+    # # reward -= (accel[t] - realized_accel[t]) ** 2
 
     # energy consumption reward
     sum_energy = sum([
         energy_model.get_instantaneous_fuel_consumption(
             speed=speed_i, accel=accel_i, grade=0)
-        for speed_i, accel_i in zip(speed[max(t-energy_steps+1, 0): t+1],
-                                    accel[max(t-energy_steps+1, 0): t+1])])
-
+        for speed_i, accel_i in zip(speed[max(t-ENERGY_STEPS+1, 0): t+1],
+                                    accel[max(t-ENERGY_STEPS+1, 0): t+1])])
     sum_speed = sum(np.clip(
-        speed[max(t-energy_steps+1, 0): t+1], a_min=0.1, a_max=np.inf))
+        speed[max(t-ENERGY_STEPS+1, 0): t+1], a_min=0.1, a_max=np.inf))
 
-    reward -= 2.5 * min(sum_energy / sum_speed, 0.2)
+    reward -= min(sum_energy / sum_speed, 0.2)
 
-    return scale * reward
+    return reward
 
 
-def obs(headway, accel, speed, leader_speed, t):
+def obs(pos, headway, speed, leader_speed, avg_speed, segments, times, t, n):
     """Compute the observation at a specific time index.
 
     Parameters
     ----------
+    pos : array_like
+        list of vehicle positions over time
     headway : array_like
         list of vehicle headways over time
-    accel : array_like
-        list of vehicle accelerations over time
     speed : array_like
         list of vehicle speed over time
     leader_speed : array_like
         list of vehicle lead speeds over time
+    avg_speed : array_like
+        the most recent average speed of every segment
+    segments : array_like
+        the starting position of every whose macroscopic state is estimated
+    times : array_like
+        the times when each traffic state estimate was taken
     t : int
         the time index
+    n : int
+        number of downstream edges to be sensed
 
     Returns
     -------
@@ -152,22 +235,19 @@ def obs(headway, accel, speed, leader_speed, t):
         [0.] * n_missed +
         list((leader_speed[min_t: max_t]-speed[min_t: max_t]) / SPEED_SCALE) +
         [0.] * n_missed +
-        list(headway[min_t: max_t] / HEADWAY_SCALE))
+        list(headway[min_t: max_t] / HEADWAY_SCALE) +
+        get_leader_avg_speed(
+            segments, avg_speed, times, pos=pos[t], t=t * DT, n=n)
+    )
 
 
-def action(headway, accel, speed, leader_speed, t):
+def action(accel, t):
     """Compute the action at a specific time index.
 
     Parameters
     ----------
-    headway : array_like
-        list of vehicle headways over time
     accel : array_like
         list of vehicle accelerations over time
-    speed : array_like
-        list of vehicle speed over time
-    leader_speed : array_like
-        list of vehicle lead speeds over time
     t : int
         the time index
 
@@ -176,7 +256,7 @@ def action(headway, accel, speed, leader_speed, t):
     array_like
         the observation
     """
-    return np.array([2. * accel[t]])
+    return np.array([ACTION_SCALE * accel[t]])
 
 
 def main(args):
@@ -187,6 +267,21 @@ def main(args):
     # Load data.
     df = pd.read_csv(flags.infile)
 
+    avg_speed = None
+    segments = None
+    times = None
+    downstream_path = flags.downstream_path
+    if downstream_path is not None:
+        with open(os.path.join(downstream_path, "segments.json"), "r") as f:
+            segments = json.load(f)
+
+        times = sorted(list(pd.read_csv(
+            os.path.join(downstream_path, "speed.csv"))["time"]))
+
+        avg_speed = np.genfromtxt(
+            os.path.join(downstream_path, "speed.csv"),
+            delimiter=",", skip_header=1)[:, 1:]
+
     av_ids = [x for x in np.unique(df.id) if "av" in x]
     energy_model = PFMCompactSedan()
 
@@ -196,6 +291,7 @@ def main(args):
         df_i = df[df.id == av_id]
         df_i = df_i.sort_values("time")
 
+        pos = np.array(df_i.pos)
         headway = np.array(df_i.headway)
         accel = np.array(df_i.target_accel_no_noise_no_failsafe)
         realized_accel = np.array(df_i.accel)
@@ -204,26 +300,31 @@ def main(args):
 
         for t in range(len(headway) - 1):
             s = obs(
+                pos=pos,
                 headway=headway,
-                accel=accel,
                 speed=speed,
                 leader_speed=leader_speed,
+                avg_speed=avg_speed,
+                segments=segments,
+                times=times,
                 t=t,
+                n=N_DOWNSTREAM,
             )
 
             s2 = obs(
+                pos=pos,
                 headway=headway,
-                accel=accel,
                 speed=speed,
                 leader_speed=leader_speed,
-                t=t + 1,
+                avg_speed=avg_speed,
+                segments=segments,
+                times=times,
+                t=t+1,
+                n=N_DOWNSTREAM,
             )
 
             a = action(
-                headway=headway,
                 accel=accel,
-                speed=speed,
-                leader_speed=leader_speed,
                 t=t,
             )
 
@@ -232,7 +333,6 @@ def main(args):
                 accel=accel,
                 realized_accel=realized_accel,
                 speed=speed,
-                leader_speed=leader_speed,
                 t=t,
                 energy_model=energy_model,
             )
